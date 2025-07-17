@@ -25,7 +25,6 @@ const logger = winston.createLogger({
 
 interface BitbucketActivity {
     action: string;
-
     [key: string]: unknown;
 }
 
@@ -35,11 +34,13 @@ interface BitbucketConfig {
     username?: string;
     password?: string;
     defaultProject?: string;
+    isCloud: boolean;
 }
 
 interface RepositoryParams {
     project?: string;
     repository?: string;
+    workspace?: string;
 }
 
 interface PullRequestParams extends RepositoryParams {
@@ -71,6 +72,7 @@ interface ListOptions {
 
 interface ListRepositoriesOptions extends ListOptions {
     project?: string;
+    workspace?: string;
 }
 
 class BitbucketServer {
@@ -92,12 +94,14 @@ class BitbucketServer {
         );
 
         // Configuration initiale à partir des variables d'environnement
+        const baseUrl = process.env.BITBUCKET_URL ?? '';
         this.config = {
-            baseUrl: process.env.BITBUCKET_URL ?? '',
+            baseUrl,
             token: process.env.BITBUCKET_TOKEN,
             username: process.env.BITBUCKET_USERNAME,
             password: process.env.BITBUCKET_PASSWORD,
-            defaultProject: process.env.BITBUCKET_DEFAULT_PROJECT
+            defaultProject: process.env.BITBUCKET_DEFAULT_PROJECT,
+            isCloud: baseUrl.includes('bitbucket.org') || baseUrl.includes('api.bitbucket.org')
         };
 
         if (!this.config.baseUrl) {
@@ -108,10 +112,11 @@ class BitbucketServer {
             throw new Error('Either BITBUCKET_TOKEN or BITBUCKET_USERNAME/PASSWORD is required');
         }
 
-        // Configuration de l'instance Axios
+        // Configuration de l'instance Axios based on Bitbucket type
+        const apiPath = this.config.isCloud ? '/2.0' : '/rest/api/1.0';
         this.api = axios.create({
-            baseURL: `${this.config.baseUrl}/rest/api/1.0`,
-            headers: this.config.token
+            baseURL: `${this.config.baseUrl}${apiPath}`,
+            headers: this.config.token 
                 ? {Authorization: `Bearer ${this.config.token}`}
                 : {},
             auth: this.config.username && this.config.password
@@ -119,11 +124,16 @@ class BitbucketServer {
                 : undefined,
         });
 
-        this.setupToolHandlers();
+        logger.info(`Initialized for ${this.config.isCloud ? 'Bitbucket Cloud' : 'Bitbucket Server'}`, {
+            baseUrl: this.config.baseUrl,
+            apiPath
+        });
 
+        this.setupToolHandlers();
+        
         // Improved error handling for MCP errors
         this.server.onerror = (error) => {
-            logger.error('[MCP Error]', {
+            logger.error('[MCP Error]', { 
                 message: error.message,
                 stack: error.stack,
                 name: error.name
@@ -135,7 +145,7 @@ class BitbucketServer {
         const input = args as Partial<PullRequestInput>;
         return typeof args === 'object' &&
             args !== null &&
-            typeof input.project === 'string' &&
+            (typeof input.project === 'string' || typeof input.workspace === 'string') &&
             typeof input.repository === 'string' &&
             typeof input.title === 'string' &&
             typeof input.sourceBranch === 'string' &&
@@ -149,13 +159,15 @@ class BitbucketServer {
             tools: [
                 {
                     name: 'list_projects',
-                    description: 'Discover and list all Bitbucket projects you have access to. Use this first to explore available projects, find project keys, or when you need to work with a specific project but don\'t know its exact key. Returns project keys, names, descriptions and visibility settings.',
+                    description: this.config.isCloud 
+                        ? 'Discover and list all Bitbucket workspaces you have access to. Use this first to explore available workspaces, find workspace names, or when you need to work with a specific workspace. Returns workspace names, UUIDs, and visibility settings.'
+                        : 'Discover and list all Bitbucket projects you have access to. Use this first to explore available projects, find project keys, or when you need to work with a specific project but don\'t know its exact key. Returns project keys, names, descriptions and visibility settings.',
                     inputSchema: {
                         type: 'object',
                         properties: {
                             limit: {
                                 type: 'number',
-                                description: 'Number of projects to return (default: 25, max: 1000)'
+                                description: 'Number of projects/workspaces to return (default: 25, max: 1000)'
                             },
                             start: {type: 'number', description: 'Start index for pagination (default: 0)'}
                         }
@@ -163,13 +175,15 @@ class BitbucketServer {
                 },
                 {
                     name: 'list_repositories',
-                    description: 'Browse and discover repositories within a specific project or across all accessible projects. Use this to find repository slugs, explore codebases, or understand the repository structure. Returns repository names, slugs, clone URLs, and project associations.',
+                    description: 'Browse and discover repositories within a specific project/workspace or across all accessible projects. Use this to find repository slugs, explore codebases, or understand the repository structure. Returns repository names, slugs, clone URLs, and project associations.',
                     inputSchema: {
                         type: 'object',
                         properties: {
-                            project: {
+                            [this.config.isCloud ? 'workspace' : 'project']: {
                                 type: 'string',
-                                description: 'Bitbucket project key to list repositories from. If omitted, uses BITBUCKET_DEFAULT_PROJECT or lists all accessible repositories across projects.'
+                                description: this.config.isCloud 
+                                    ? 'Bitbucket workspace name to list repositories from. If omitted, uses BITBUCKET_DEFAULT_PROJECT or lists all accessible repositories across workspaces.'
+                                    : 'Bitbucket project key to list repositories from. If omitted, uses BITBUCKET_DEFAULT_PROJECT or lists all accessible repositories across projects.'
                             },
                             limit: {
                                 type: 'number',
@@ -185,9 +199,11 @@ class BitbucketServer {
                     inputSchema: {
                         type: 'object',
                         properties: {
-                            project: {
+                            [this.config.isCloud ? 'workspace' : 'project']: {
                                 type: 'string',
-                                description: 'Bitbucket project key. If omitted, uses BITBUCKET_DEFAULT_PROJECT environment variable. Use list_projects to discover available projects.'
+                                description: this.config.isCloud
+                                    ? 'Bitbucket workspace name. If omitted, uses BITBUCKET_DEFAULT_PROJECT environment variable. Use list_projects to discover available workspaces.'
+                                    : 'Bitbucket project key. If omitted, uses BITBUCKET_DEFAULT_PROJECT environment variable. Use list_projects to discover available projects.'
                             },
                             repository: {
                                 type: 'string',
@@ -224,9 +240,11 @@ class BitbucketServer {
                     inputSchema: {
                         type: 'object',
                         properties: {
-                            project: {
+                            [this.config.isCloud ? 'workspace' : 'project']: {
                                 type: 'string',
-                                description: 'Bitbucket project key. If omitted, uses BITBUCKET_DEFAULT_PROJECT environment variable.'
+                                description: this.config.isCloud 
+                                    ? 'Bitbucket workspace name. If omitted, uses BITBUCKET_DEFAULT_PROJECT environment variable.'
+                                    : 'Bitbucket project key. If omitted, uses BITBUCKET_DEFAULT_PROJECT environment variable.'
                             },
                             repository: {type: 'string', description: 'Repository slug containing the pull request.'},
                             prId: {type: 'number', description: 'Unique pull request ID number (e.g., 123, 456).'}
@@ -240,9 +258,11 @@ class BitbucketServer {
                     inputSchema: {
                         type: 'object',
                         properties: {
-                            project: {
+                            [this.config.isCloud ? 'workspace' : 'project']: {
                                 type: 'string',
-                                description: 'Bitbucket project key. If omitted, uses BITBUCKET_DEFAULT_PROJECT environment variable.'
+                                description: this.config.isCloud 
+                                    ? 'Bitbucket workspace name. If omitted, uses BITBUCKET_DEFAULT_PROJECT environment variable.'
+                                    : 'Bitbucket project key. If omitted, uses BITBUCKET_DEFAULT_PROJECT environment variable.'
                             },
                             repository: {type: 'string', description: 'Repository slug containing the pull request.'},
                             prId: {type: 'number', description: 'Pull request ID to merge.'},
@@ -265,9 +285,11 @@ class BitbucketServer {
                     inputSchema: {
                         type: 'object',
                         properties: {
-                            project: {
+                            [this.config.isCloud ? 'workspace' : 'project']: {
                                 type: 'string',
-                                description: 'Bitbucket project key. If omitted, uses BITBUCKET_DEFAULT_PROJECT environment variable.'
+                                description: this.config.isCloud 
+                                    ? 'Bitbucket workspace name. If omitted, uses BITBUCKET_DEFAULT_PROJECT environment variable.'
+                                    : 'Bitbucket project key. If omitted, uses BITBUCKET_DEFAULT_PROJECT environment variable.'
                             },
                             repository: {type: 'string', description: 'Repository slug containing the pull request.'},
                             prId: {type: 'number', description: 'Pull request ID to decline.'},
@@ -285,9 +307,11 @@ class BitbucketServer {
                     inputSchema: {
                         type: 'object',
                         properties: {
-                            project: {
+                            [this.config.isCloud ? 'workspace' : 'project']: {
                                 type: 'string',
-                                description: 'Bitbucket project key. If omitted, uses BITBUCKET_DEFAULT_PROJECT environment variable.'
+                                description: this.config.isCloud 
+                                    ? 'Bitbucket workspace name. If omitted, uses BITBUCKET_DEFAULT_PROJECT environment variable.'
+                                    : 'Bitbucket project key. If omitted, uses BITBUCKET_DEFAULT_PROJECT environment variable.'
                             },
                             repository: {type: 'string', description: 'Repository slug containing the pull request.'},
                             prId: {type: 'number', description: 'Pull request ID to comment on.'},
@@ -309,9 +333,11 @@ class BitbucketServer {
                     inputSchema: {
                         type: 'object',
                         properties: {
-                            project: {
+                            [this.config.isCloud ? 'workspace' : 'project']: {
                                 type: 'string',
-                                description: 'Bitbucket project key. If omitted, uses BITBUCKET_DEFAULT_PROJECT environment variable.'
+                                description: this.config.isCloud 
+                                    ? 'Bitbucket workspace name. If omitted, uses BITBUCKET_DEFAULT_PROJECT environment variable.'
+                                    : 'Bitbucket project key. If omitted, uses BITBUCKET_DEFAULT_PROJECT environment variable.'
                             },
                             repository: {type: 'string', description: 'Repository slug containing the pull request.'},
                             prId: {type: 'number', description: 'Pull request ID to get diff for.'},
@@ -329,9 +355,11 @@ class BitbucketServer {
                     inputSchema: {
                         type: 'object',
                         properties: {
-                            project: {
+                            [this.config.isCloud ? 'workspace' : 'project']: {
                                 type: 'string',
-                                description: 'Bitbucket project key. If omitted, uses BITBUCKET_DEFAULT_PROJECT environment variable.'
+                                description: this.config.isCloud 
+                                    ? 'Bitbucket workspace name. If omitted, uses BITBUCKET_DEFAULT_PROJECT environment variable.'
+                                    : 'Bitbucket project key. If omitted, uses BITBUCKET_DEFAULT_PROJECT environment variable.'
                             },
                             repository: {type: 'string', description: 'Repository slug containing the pull request.'},
                             prId: {type: 'number', description: 'Pull request ID to get reviews for.'}
@@ -347,16 +375,17 @@ class BitbucketServer {
                 logger.info(`Called tool: ${request.params.name}`, {arguments: request.params.arguments});
                 const args = request.params.arguments ?? {};
 
-                // Helper function to get project with fallback to default
-                const getProject = (providedProject?: string): string => {
-                    const project = providedProject || this.config.defaultProject;
-                    if (!project) {
+                // Helper function to get project/workspace with fallback to default
+                const getProjectOrWorkspace = (providedValue?: string): string => {
+                    const value = providedValue || this.config.defaultProject;
+                    if (!value) {
+                        const type = this.config.isCloud ? 'workspace' : 'project';
                         throw new McpError(
                             ErrorCode.InvalidParams,
-                            'Project must be provided either as a parameter or through BITBUCKET_DEFAULT_PROJECT environment variable'
+                            `${type} must be provided either as a parameter or through BITBUCKET_DEFAULT_PROJECT environment variable`
                         );
                     }
-                    return project;
+                    return value;
                 };
 
                 switch (request.params.name) {
@@ -369,7 +398,7 @@ class BitbucketServer {
 
                     case 'list_repositories': {
                         return await this.listRepositories({
-                            project: args.project as string,
+                            [this.config.isCloud ? 'workspace' : 'project']: args[this.config.isCloud ? 'workspace' : 'project'] as string,
                             limit: args.limit as number,
                             start: args.start as number
                         });
@@ -382,14 +411,16 @@ class BitbucketServer {
                                 'Invalid pull request input parameters'
                             );
                         }
-                        // Ensure project is set
-                        const createArgs = {...args, project: getProject(args.project)};
+                        // Ensure project/workspace is set
+                        const key = this.config.isCloud ? 'workspace' : 'project';
+                        const createArgs = { ...args, [key]: getProjectOrWorkspace(args[key] as string) };
                         return await this.createPullRequest(createArgs);
                     }
 
                     case 'get_pull_request': {
+                        const key = this.config.isCloud ? 'workspace' : 'project';
                         const getPrParams: PullRequestParams = {
-                            project: getProject(args.project as string),
+                            [key]: getProjectOrWorkspace(args[key] as string),
                             repository: args.repository as string,
                             prId: args.prId as number
                         };
@@ -397,8 +428,9 @@ class BitbucketServer {
                     }
 
                     case 'merge_pull_request': {
+                        const key = this.config.isCloud ? 'workspace' : 'project';
                         const mergePrParams: PullRequestParams = {
-                            project: getProject(args.project as string),
+                            [key]: getProjectOrWorkspace(args[key] as string),
                             repository: args.repository as string,
                             prId: args.prId as number
                         };
@@ -409,8 +441,9 @@ class BitbucketServer {
                     }
 
                     case 'decline_pull_request': {
+                        const key = this.config.isCloud ? 'workspace' : 'project';
                         const declinePrParams: PullRequestParams = {
-                            project: getProject(args.project as string),
+                            [key]: getProjectOrWorkspace(args[key] as string),
                             repository: args.repository as string,
                             prId: args.prId as number
                         };
@@ -418,8 +451,9 @@ class BitbucketServer {
                     }
 
                     case 'add_comment': {
+                        const key = this.config.isCloud ? 'workspace' : 'project';
                         const commentPrParams: PullRequestParams = {
-                            project: getProject(args.project as string),
+                            [key]: getProjectOrWorkspace(args[key] as string),
                             repository: args.repository as string,
                             prId: args.prId as number
                         };
@@ -430,8 +464,9 @@ class BitbucketServer {
                     }
 
                     case 'get_diff': {
+                        const key = this.config.isCloud ? 'workspace' : 'project';
                         const diffPrParams: PullRequestParams = {
-                            project: getProject(args.project as string),
+                            [key]: getProjectOrWorkspace(args[key] as string),
                             repository: args.repository as string,
                             prId: args.prId as number
                         };
@@ -439,8 +474,9 @@ class BitbucketServer {
                     }
 
                     case 'get_reviews': {
+                        const key = this.config.isCloud ? 'workspace' : 'project';
                         const reviewsPrParams: PullRequestParams = {
-                            project: getProject(args.project as string),
+                            [key]: getProjectOrWorkspace(args[key] as string),
                             repository: args.repository as string,
                             prId: args.prId as number
                         };
@@ -456,9 +492,12 @@ class BitbucketServer {
             } catch (error) {
                 logger.error('Tool execution error', {error});
                 if (axios.isAxiosError(error)) {
+                    const errorMessage = this.config.isCloud 
+                        ? error.response?.data?.error?.message || error.response?.data?.message || error.message
+                        : error.response?.data.message || error.message;
                     throw new McpError(
                         ErrorCode.InternalError,
-                        `Bitbucket API error: ${error.response?.data.message ?? error.message}`
+                        `Bitbucket API error: ${errorMessage}`
                     );
                 }
                 throw error;
@@ -468,258 +507,537 @@ class BitbucketServer {
 
     private async listProjects(options: ListOptions = {}) {
         const {limit = 25, start = 0} = options;
-        const response = await this.api.get('/projects', {
-            params: {limit, start}
-        });
+        
+        if (this.config.isCloud) {
+            // Bitbucket Cloud: List workspaces
+            const response = await this.api.get('/workspaces', {
+                params: { pagelen: limit, page: Math.floor(start / limit) + 1 }
+            });
 
-        const projects = response.data.values || [];
-        const summary = {
-            total: response.data.size || projects.length,
-            showing: projects.length,
-            projects: projects.map((project: {
-                key: string;
-                name: string;
-                description?: string;
-                public: boolean;
-                type: string
-            }) => ({
-                key: project.key,
-                name: project.name,
-                description: project.description,
-                public: project.public,
-                type: project.type
-            }))
-        };
+            const workspaces = response.data.values || [];
+            const summary = {
+                total: response.data.size || workspaces.length,
+                showing: workspaces.length,
+                workspaces: workspaces.map((workspace: { slug: string; name: string; uuid: string; is_private: boolean }) => ({
+                    slug: workspace.slug,
+                    name: workspace.name,
+                    uuid: workspace.uuid,
+                    private: workspace.is_private
+                }))
+            };
 
-        return {
-            content: [{
-                type: 'text',
-                text: JSON.stringify(summary, null, 2)
-            }]
-        };
+            return {
+                content: [{
+                    type: 'text',
+                    text: JSON.stringify(summary, null, 2)
+                }]
+            };
+        } else {
+            // Bitbucket Server: List projects
+            const response = await this.api.get('/projects', {
+                params: {limit, start}
+            });
+
+            const projects = response.data.values || [];
+            const summary = {
+                total: response.data.size || projects.length,
+                showing: projects.length,
+                projects: projects.map((project: {
+                    key: string;
+                    name: string;
+                    description?: string;
+                    public: boolean;
+                    type: string
+                }) => ({
+                    key: project.key,
+                    name: project.name,
+                    description: project.description,
+                    public: project.public,
+                    type: project.type
+                }))
+            };
+
+            return {
+                content: [{
+                    type: 'text',
+                    text: JSON.stringify(summary, null, 2)
+                }]
+            };
+        }
     }
 
     private async listRepositories(options: ListRepositoriesOptions = {}) {
-        const {project, limit = 25, start = 0} = options;
+        const {limit = 25, start = 0} = options;
+        const workspaceOrProject = options.workspace || options.project;
+        
+        if (this.config.isCloud) {
+            // Bitbucket Cloud: List repositories
+            let endpoint: string;
+            const params = { pagelen: limit, page: Math.floor(start / limit) + 1 };
 
-        let endpoint: string;
-        const params = {limit, start};
+            if (workspaceOrProject || this.config.defaultProject) {
+                const workspace = workspaceOrProject || this.config.defaultProject;
+                endpoint = `/repositories/${workspace}`;
+            } else {
+                endpoint = '/repositories';
+                // Add role parameter to get repositories user has access to
+                Object.assign(params, { role: 'member' });
+            }
 
-        if (project || this.config.defaultProject) {
-            // List repositories for a specific project
-            const projectKey = project || this.config.defaultProject;
-            endpoint = `/projects/${projectKey}/repos`;
+            const response = await this.api.get(endpoint, { params });
+
+            const repositories = response.data.values || [];
+            const summary = {
+                workspace: workspaceOrProject || this.config.defaultProject || 'all',
+                total: response.data.size || repositories.length,
+                showing: repositories.length,
+                repositories: repositories.map((repo: {
+                    name: string;
+                    full_name: string;
+                    description?: string;
+                    is_private: boolean;
+                    links?: { clone?: { name: string; href: string }[] };
+                    owner?: { username: string }
+                }) => ({
+                    name: repo.name,
+                    full_name: repo.full_name,
+                    description: repo.description,
+                    private: repo.is_private,
+                    cloneUrl: repo.links?.clone?.find((link: { name: string; href: string }) => link.name === 'https')?.href,
+                    owner: repo.owner?.username
+                }))
+            };
+
+            return {
+                content: [{
+                    type: 'text',
+                    text: JSON.stringify(summary, null, 2)
+                }]
+            };
         } else {
-            // List all accessible repositories
-            endpoint = '/repos';
+            // Bitbucket Server: List repositories
+            let endpoint: string;
+            const params = {limit, start};
+
+            if (workspaceOrProject || this.config.defaultProject) {
+                const projectKey = workspaceOrProject || this.config.defaultProject;
+                endpoint = `/projects/${projectKey}/repos`;
+            } else {
+                endpoint = '/repos';
+            }
+
+            const response = await this.api.get(endpoint, {params});
+
+            const repositories = response.data.values || [];
+            const summary = {
+                project: workspaceOrProject || this.config.defaultProject || 'all',
+                total: response.data.size || repositories.length,
+                showing: repositories.length,
+                repositories: repositories.map((repo: {
+                    slug: string;
+                    name: string;
+                    description?: string;
+                    project?: { key: string };
+                    public: boolean;
+                    links?: { clone?: { name: string; href: string }[] };
+                    state: string
+                }) => ({
+                    slug: repo.slug,
+                    name: repo.name,
+                    description: repo.description,
+                    project: repo.project?.key,
+                    public: repo.public,
+                    cloneUrl: repo.links?.clone?.find((link: { name: string; href: string }) => link.name === 'http')?.href,
+                    state: repo.state
+                }))
+            };
+
+            return {
+                content: [{
+                    type: 'text',
+                    text: JSON.stringify(summary, null, 2)
+                }]
+            };
         }
-
-        const response = await this.api.get(endpoint, {params});
-
-        const repositories = response.data.values || [];
-        const summary = {
-            project: project || this.config.defaultProject || 'all',
-            total: response.data.size || repositories.length,
-            showing: repositories.length,
-            repositories: repositories.map((repo: {
-                slug: string;
-                name: string;
-                description?: string;
-                project?: { key: string };
-                public: boolean;
-                links?: { clone?: { name: string; href: string }[] };
-                state: string
-            }) => ({
-                slug: repo.slug,
-                name: repo.name,
-                description: repo.description,
-                project: repo.project?.key,
-                public: repo.public,
-                cloneUrl: repo.links?.clone?.find((link: { name: string; href: string }) => link.name === 'http')?.href,
-                state: repo.state
-            }))
-        };
-
-        return {
-            content: [{
-                type: 'text',
-                text: JSON.stringify(summary, null, 2)
-            }]
-        };
     }
 
     private async createPullRequest(input: PullRequestInput) {
-        const response = await this.api.post(
-            `/projects/${input.project}/repos/${input.repository}/pull-requests`,
-            {
-                title: input.title,
-                description: input.description,
-                fromRef: {
-                    id: `refs/heads/${input.sourceBranch}`,
-                    repository: {
-                        slug: input.repository,
-                        project: {key: input.project}
-                    }
-                },
-                toRef: {
-                    id: `refs/heads/${input.targetBranch}`,
-                    repository: {
-                        slug: input.repository,
-                        project: {key: input.project}
-                    }
-                },
-                reviewers: input.reviewers?.map(username => ({user: {name: username}}))
-            }
-        );
+        if (this.config.isCloud) {
+            // Bitbucket Cloud API
+            const workspace = input.workspace || this.config.defaultProject;
+            const response = await this.api.post(
+                `/repositories/${workspace}/${input.repository}/pullrequests`,
+                {
+                    title: input.title,
+                    description: input.description,
+                    source: {
+                        branch: {
+                            name: input.sourceBranch
+                        }
+                    },
+                    destination: {
+                        branch: {
+                            name: input.targetBranch
+                        }
+                    },
+                    reviewers: input.reviewers?.map(username => ({ username }))
+                }
+            );
 
-        return {
-            content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
-        };
+            return {
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
+            };
+        } else {
+            // Bitbucket Server API
+            const project = input.project || this.config.defaultProject;
+            const response = await this.api.post(
+                `/projects/${project}/repos/${input.repository}/pull-requests`,
+                {
+                    title: input.title,
+                    description: input.description,
+                    fromRef: {
+                        id: `refs/heads/${input.sourceBranch}`,
+                        repository: {
+                            slug: input.repository,
+                            project: {key: project}
+                        }
+                    },
+                    toRef: {
+                        id: `refs/heads/${input.targetBranch}`,
+                        repository: {
+                            slug: input.repository,
+                            project: {key: project}
+                        }
+                    },
+                    reviewers: input.reviewers?.map(username => ({user: {name: username}}))
+                }
+            );
+
+            return {
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
+            };
+        }
     }
 
     private async getPullRequest(params: PullRequestParams) {
-        const {project, repository, prId} = params;
-
-        if (!project || !repository || !prId) {
+        const {repository, prId} = params;
+        
+        if (!repository || !prId) {
             throw new McpError(
                 ErrorCode.InvalidParams,
-                'Project, repository, and prId are required'
+                'Repository and prId are required'
             );
         }
+        
+        if (this.config.isCloud) {
+            const workspace = params.workspace || this.config.defaultProject;
+            if (!workspace) {
+                throw new McpError(
+                    ErrorCode.InvalidParams,
+                    'Workspace is required for Bitbucket Cloud'
+                );
+            }
 
-        const response = await this.api.get(
-            `/projects/${project}/repos/${repository}/pull-requests/${prId}`
-        );
+            const response = await this.api.get(
+                `/repositories/${workspace}/${repository}/pullrequests/${prId}`
+            );
 
-        return {
-            content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
-        };
+            return {
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
+            };
+        } else {
+            const project = params.project || this.config.defaultProject;
+            if (!project) {
+                throw new McpError(
+                    ErrorCode.InvalidParams,
+                    'Project is required for Bitbucket Server'
+                );
+            }
+
+            const response = await this.api.get(
+                `/projects/${project}/repos/${repository}/pull-requests/${prId}`
+            );
+
+            return {
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
+            };
+        }
     }
 
     private async mergePullRequest(params: PullRequestParams, options: MergeOptions = {}) {
-        const {project, repository, prId} = params;
-
-        if (!project || !repository || !prId) {
+        const {repository, prId} = params;
+        
+        if (!repository || !prId) {
             throw new McpError(
                 ErrorCode.InvalidParams,
-                'Project, repository, and prId are required'
+                'Repository and prId are required'
             );
         }
-
-        const {message, strategy = 'merge-commit'} = options;
-
-        const response = await this.api.post(
-            `/projects/${project}/repos/${repository}/pull-requests/${prId}/merge`,
-            {
-                version: -1,
-                message,
-                strategy
+        
+        if (this.config.isCloud) {
+            const workspace = params.workspace || this.config.defaultProject;
+            if (!workspace) {
+                throw new McpError(
+                    ErrorCode.InvalidParams,
+                    'Workspace is required for Bitbucket Cloud'
+                );
             }
-        );
 
-        return {
-            content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
-        };
+            // First approve the PR, then merge it (Bitbucket Cloud requires approval)
+            const response = await this.api.post(
+                `/repositories/${workspace}/${repository}/pullrequests/${prId}/merge`,
+                {
+                    message: options.message,
+                    merge_strategy: options.strategy || 'merge_commit'
+                }
+            );
+
+            return {
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
+            };
+        } else {
+            const project = params.project || this.config.defaultProject;
+            if (!project) {
+                throw new McpError(
+                    ErrorCode.InvalidParams,
+                    'Project is required for Bitbucket Server'
+                );
+            }
+
+            const response = await this.api.post(
+                `/projects/${project}/repos/${repository}/pull-requests/${prId}/merge`,
+                {
+                    version: -1,
+                    message: options.message,
+                    strategy: options.strategy || 'merge-commit'
+                }
+            );
+
+            return {
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
+            };
+        }
     }
 
     private async declinePullRequest(params: PullRequestParams, message?: string) {
-        const {project, repository, prId} = params;
-
-        if (!project || !repository || !prId) {
+        const {repository, prId} = params;
+        
+        if (!repository || !prId) {
             throw new McpError(
                 ErrorCode.InvalidParams,
-                'Project, repository, and prId are required'
+                'Repository and prId are required'
             );
         }
-
-        const response = await this.api.post(
-            `/projects/${project}/repos/${repository}/pull-requests/${prId}/decline`,
-            {
-                version: -1,
-                message
+        
+        if (this.config.isCloud) {
+            const workspace = params.workspace || this.config.defaultProject;
+            if (!workspace) {
+                throw new McpError(
+                    ErrorCode.InvalidParams,
+                    'Workspace is required for Bitbucket Cloud'
+                );
             }
-        );
 
-        return {
-            content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
-        };
+            const response = await this.api.post(
+                `/repositories/${workspace}/${repository}/pullrequests/${prId}/decline`,
+                message ? { reason: message } : {}
+            );
+
+            return {
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
+            };
+        } else {
+            const project = params.project || this.config.defaultProject;
+            if (!project) {
+                throw new McpError(
+                    ErrorCode.InvalidParams,
+                    'Project is required for Bitbucket Server'
+                );
+            }
+
+            const response = await this.api.post(
+                `/projects/${project}/repos/${repository}/pull-requests/${prId}/decline`,
+                {
+                    version: -1,
+                    message
+                }
+            );
+
+            return {
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
+            };
+        }
     }
 
     private async addComment(params: PullRequestParams, options: CommentOptions) {
-        const {project, repository, prId} = params;
-
-        if (!project || !repository || !prId) {
+        const {repository, prId} = params;
+        
+        if (!repository || !prId) {
             throw new McpError(
                 ErrorCode.InvalidParams,
-                'Project, repository, and prId are required'
+                'Repository and prId are required'
             );
         }
-
+        
         const {text, parentId} = options;
-
-        const response = await this.api.post(
-            `/projects/${project}/repos/${repository}/pull-requests/${prId}/comments`,
-            {
-                text,
-                parent: parentId ? {id: parentId} : undefined
+        
+        if (this.config.isCloud) {
+            const workspace = params.workspace || this.config.defaultProject;
+            if (!workspace) {
+                throw new McpError(
+                    ErrorCode.InvalidParams,
+                    'Workspace is required for Bitbucket Cloud'
+                );
             }
-        );
 
-        return {
-            content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
-        };
+            const response = await this.api.post(
+                `/repositories/${workspace}/${repository}/pullrequests/${prId}/comments`,
+                {
+                    content: {
+                        raw: text
+                    },
+                    parent: parentId ? { id: parentId } : undefined
+                }
+            );
+
+            return {
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
+            };
+        } else {
+            const project = params.project || this.config.defaultProject;
+            if (!project) {
+                throw new McpError(
+                    ErrorCode.InvalidParams,
+                    'Project is required for Bitbucket Server'
+                );
+            }
+
+            const response = await this.api.post(
+                `/projects/${project}/repos/${repository}/pull-requests/${prId}/comments`,
+                {
+                    text,
+                    parent: parentId ? {id: parentId} : undefined
+                }
+            );
+
+            return {
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
+            };
+        }
     }
 
     private async getDiff(params: PullRequestParams, contextLines: number = 10) {
-        const {project, repository, prId} = params;
-
-        if (!project || !repository || !prId) {
+        const {repository, prId} = params;
+        
+        if (!repository || !prId) {
             throw new McpError(
                 ErrorCode.InvalidParams,
-                'Project, repository, and prId are required'
+                'Repository and prId are required'
             );
         }
-
-        const response = await this.api.get(
-            `/projects/${project}/repos/${repository}/pull-requests/${prId}/diff`,
-            {
-                params: {contextLines},
-                headers: {Accept: 'text/plain'}
+        
+        if (this.config.isCloud) {
+            const workspace = params.workspace || this.config.defaultProject;
+            if (!workspace) {
+                throw new McpError(
+                    ErrorCode.InvalidParams,
+                    'Workspace is required for Bitbucket Cloud'
+                );
             }
-        );
 
-        return {
-            content: [{type: 'text', text: response.data}]
-        };
+            const response = await this.api.get(
+                `/repositories/${workspace}/${repository}/pullrequests/${prId}/diff`,
+                {
+                    params: { context: contextLines },
+                    headers: { Accept: 'text/plain' }
+                }
+            );
+
+            return {
+                content: [{type: 'text', text: response.data}]
+            };
+        } else {
+            const project = params.project || this.config.defaultProject;
+            if (!project) {
+                throw new McpError(
+                    ErrorCode.InvalidParams,
+                    'Project is required for Bitbucket Server'
+                );
+            }
+
+            const response = await this.api.get(
+                `/projects/${project}/repos/${repository}/pull-requests/${prId}/diff`,
+                {
+                    params: {contextLines},
+                    headers: {Accept: 'text/plain'}
+                }
+            );
+
+            return {
+                content: [{type: 'text', text: response.data}]
+            };
+        }
     }
 
     private async getReviews(params: PullRequestParams) {
-        const {project, repository, prId} = params;
-
-        if (!project || !repository || !prId) {
+        const {repository, prId} = params;
+        
+        if (!repository || !prId) {
             throw new McpError(
                 ErrorCode.InvalidParams,
-                'Project, repository, and prId are required'
+                'Repository and prId are required'
             );
         }
+        
+        if (this.config.isCloud) {
+            const workspace = params.workspace || this.config.defaultProject;
+            if (!workspace) {
+                throw new McpError(
+                    ErrorCode.InvalidParams,
+                    'Workspace is required for Bitbucket Cloud'
+                );
+            }
 
-        const response = await this.api.get(
-            `/projects/${project}/repos/${repository}/pull-requests/${prId}/activities`
-        );
+            // Bitbucket Cloud doesn't have a direct reviews endpoint, get PR data instead
+            const response = await this.api.get(
+                `/repositories/${workspace}/${repository}/pullrequests/${prId}`
+            );
 
-        const reviews = response.data.values.filter(
-            (activity: BitbucketActivity) => activity.action === 'APPROVED' || activity.action === 'REVIEWED'
-        );
+            const reviews = {
+                participants: response.data.participants || [],
+                reviewers: response.data.reviewers || []
+            };
 
-        return {
-            content: [{type: 'text', text: JSON.stringify(reviews, null, 2)}]
-        };
+            return {
+                content: [{type: 'text', text: JSON.stringify(reviews, null, 2)}]
+            };
+        } else {
+            const project = params.project || this.config.defaultProject;
+            if (!project) {
+                throw new McpError(
+                    ErrorCode.InvalidParams,
+                    'Project is required for Bitbucket Server'
+                );
+            }
+
+            const response = await this.api.get(
+                `/projects/${project}/repos/${repository}/pull-requests/${prId}/activities`
+            );
+
+            const reviews = response.data.values.filter(
+                (activity: BitbucketActivity) => activity.action === 'APPROVED' || activity.action === 'REVIEWED'
+            );
+
+            return {
+                content: [{type: 'text', text: JSON.stringify(reviews, null, 2)}]
+            };
+        }
     }
 
     async run() {
         try {
             const transport = new StdioServerTransport();
-
+            
             // Set up graceful shutdown
             const cleanup = () => {
                 logger.info('Shutting down Bitbucket MCP server...');
@@ -747,7 +1065,7 @@ class BitbucketServer {
 
             // Keep the process alive
             process.stdin.resume();
-
+            
         } catch (error) {
             logger.error('Failed to start server:', error);
             process.exit(1);

@@ -1,15 +1,18 @@
-# Bitbucket Server MCP
+# Bitbucket MCP Server
 
-MCP (Model Context Protocol) server for Bitbucket Server Pull Request management. This server provides tools and resources to interact with the Bitbucket Server API through the MCP protocol.
+MCP (Model Context Protocol) server for **both Bitbucket Cloud and Bitbucket Server** Pull Request management. This server provides tools and resources to interact with Bitbucket APIs through the MCP protocol with **automatic detection** of your Bitbucket instance type.
 
 [![smithery badge](https://smithery.ai/badge/@garc33/bitbucket-server-mcp-server)](https://smithery.ai/server/@garc33/bitbucket-server-mcp-server)
 <a href="https://glama.ai/mcp/servers/jskr5c1zq3"><img width="380" height="200" src="https://glama.ai/mcp/servers/jskr5c1zq3/badge" alt="Bitbucket Server MCP server" /></a>
 
-## ✨ New Features
+## ✨ Key Features
 
-- **🔍 Project Discovery**: List all accessible Bitbucket projects with `list_projects`
-- **📁 Repository Browsing**: Explore repositories across projects with `list_repositories`
-- **🔧 Flexible Project Support**: Make the default project optional - specify per command or use `BITBUCKET_DEFAULT_PROJECT`
+- **🔄 Auto-Detection**: Automatically detects Bitbucket Cloud (`bitbucket.org`) vs Bitbucket Server and uses appropriate APIs
+- **☁️ Bitbucket Cloud Support**: Full support for Bitbucket Cloud API v2.0 with workspaces
+- **🏢 Bitbucket Server Support**: Complete support for Bitbucket Server API v1.0 with projects
+- **🔍 Project/Workspace Discovery**: List all accessible projects (Server) or workspaces (Cloud)
+- **📁 Repository Browsing**: Explore repositories across projects/workspaces
+- **🔧 Flexible Configuration**: Specify project/workspace per command or use defaults
 - **📖 Enhanced Documentation**: Improved README with usage examples and better configuration guidance
 
 ## Requirements
@@ -40,42 +43,48 @@ npm run build
 
 ## Features
 
-The server provides the following tools for comprehensive Bitbucket Server integration:
+The server provides the following tools for comprehensive Bitbucket integration:
 
 ### `list_projects`
 
-**Discover and explore Bitbucket projects**: Lists all accessible projects with their details. Essential for project discovery and finding the correct project keys to use in other operations.
+**Discover and explore projects/workspaces**: 
+- **Bitbucket Cloud**: Lists all accessible workspaces with their details
+- **Bitbucket Server**: Lists all accessible projects with their details
+
+Essential for discovery when you don't know the exact project/workspace names.
 
 **Use cases:**
-
-- Find available projects when you don't know the exact project key
-- Explore project structure and permissions
-- Discover new projects you have access to
+- Find available projects/workspaces when you don't know the exact names
+- Explore project/workspace structure and permissions
+- Discover new projects/workspaces you have access to
 
 Parameters:
-
-- `limit`: Number of projects to return (default: 25, max: 1000)
+- `limit`: Number of projects/workspaces to return (default: 25, max: 1000)
 - `start`: Start index for pagination (default: 0)
 
 ### `list_repositories`
 
-**Browse and discover repositories**: Explore repositories within specific projects or across all accessible projects. Returns comprehensive repository information including clone URLs and metadata.
+**Browse and discover repositories**: 
+- **Bitbucket Cloud**: Explore repositories within workspaces
+- **Bitbucket Server**: Explore repositories within projects
+
+Returns comprehensive repository information including clone URLs and metadata.
 
 **Use cases:**
 - Find repository slugs for other operations
-- Explore codebase structure across projects
+- Explore codebase structure across projects/workspaces
 - Discover repositories you have access to
-- Browse a specific project's repositories
+- Browse a specific project's/workspace's repositories
 
 Parameters:
-
-- `project`: Bitbucket project key (optional, uses BITBUCKET_DEFAULT_PROJECT if not provided)
+- **Bitbucket Cloud**: `workspace`: Workspace name (optional, uses `BITBUCKET_DEFAULT_PROJECT` if not provided)
+- **Bitbucket Server**: `project`: Project key (optional, uses `BITBUCKET_DEFAULT_PROJECT` if not provided)
 - `limit`: Number of repositories to return (default: 25, max: 1000)
 - `start`: Start index for pagination (default: 0)
 
 ### `create_pull_request`
 
-**Propose code changes for review**: Creates a new pull request to submit code changes, request reviews, or merge feature branches. Automatically handles branch references and reviewer assignments.
+**Propose code changes for review**: Creates a new pull request with automatic branch reference setup and reviewer assignments.
 
 **Use cases:**
 - Submit feature development for review
@@ -84,8 +93,8 @@ Parameters:
 - Collaborate on code changes
 
 Parameters:
-
-- `project`: Bitbucket project key (optional, uses BITBUCKET_DEFAULT_PROJECT if not provided)
+- **Bitbucket Cloud**: `workspace`: Workspace name (optional, uses `BITBUCKET_DEFAULT_PROJECT` if not provided)
+- **Bitbucket Server**: `project`: Project key (optional, uses `BITBUCKET_DEFAULT_PROJECT` if not provided)
 - `repository` (required): Repository slug
 - `title` (required): Clear, descriptive PR title
 - `description`: Detailed description with context (supports Markdown)
@@ -95,7 +104,7 @@ Parameters:
 
 ### `get_pull_request`
 
-**Comprehensive PR information**: Retrieves detailed pull request information including status, reviewers, commits, and all metadata. Essential for understanding PR state before taking actions.
+**Comprehensive PR information**: Retrieves detailed pull request information including status, reviewers, commits, and all metadata.
 
 **Use cases:**
 - Check PR approval status
@@ -104,67 +113,62 @@ Parameters:
 - Monitor PR status
 
 Parameters:
-
-- `project`: Bitbucket project key (optional, uses BITBUCKET_DEFAULT_PROJECT if not provided)
+- **Bitbucket Cloud**: `workspace`: Workspace name (optional, uses `BITBUCKET_DEFAULT_PROJECT` if not provided)
+- **Bitbucket Server**: `project`: Project key (optional, uses `BITBUCKET_DEFAULT_PROJECT` if not provided)
 - `repository` (required): Repository slug
 - `prId` (required): Pull request ID
 
 ### `merge_pull_request`
 
-**Integrate approved changes**: Merges an approved pull request into the target branch. Supports different merge strategies based on your workflow preferences.
+**Merge approved pull requests**: Merges an approved pull request with configurable merge strategies.
 
 **Use cases:**
-- Complete the code review process
-- Integrate approved features
-- Apply bug fixes to main branches
-- Release code changes
+- Integrate approved changes
+- Complete feature development cycle
+- Merge bug fixes
+- Finalize code reviews
 
 Parameters:
-
-- `project`: Bitbucket project key (optional, uses BITBUCKET_DEFAULT_PROJECT if not provided)
+- **Bitbucket Cloud**: `workspace`: Workspace name (optional, uses `BITBUCKET_DEFAULT_PROJECT` if not provided)
+- **Bitbucket Server**: `project`: Project key (optional, uses `BITBUCKET_DEFAULT_PROJECT` if not provided)
 - `repository` (required): Repository slug
 - `prId` (required): Pull request ID
 - `message`: Custom merge commit message
-- `strategy`: Merge strategy:
-  - `merge-commit` (default): Creates merge commit preserving history
-  - `squash`: Combines all commits into one
-  - `fast-forward`: Moves branch pointer without merge commit
+- `strategy`: Merge strategy (`merge-commit`, `squash`, `fast-forward`)
 
 ### `decline_pull_request`
 
-**Reject unsuitable changes**: Declines a pull request that should not be merged, providing feedback to the author.
+**Decline pull requests**: Declines/rejects a pull request that should not be merged.
 
 **Use cases:**
-- Reject changes that don't meet standards
+- Reject unacceptable changes
 - Close PRs that conflict with project direction
-- Request significant rework
-- Prevent unwanted code integration
+- Decline PRs that need significant rework
 
 Parameters:
-
-- `project`: Bitbucket project key (optional, uses BITBUCKET_DEFAULT_PROJECT if not provided)
+- **Bitbucket Cloud**: `workspace`: Workspace name (optional, uses `BITBUCKET_DEFAULT_PROJECT` if not provided)
+- **Bitbucket Server**: `project`: Project key (optional, uses `BITBUCKET_DEFAULT_PROJECT` if not provided)
 - `repository` (required): Repository slug
 - `prId` (required): Pull request ID
-- `message`: Reason for declining (helpful for author feedback)
+- `message`: Reason for declining
 
 ### `add_comment`
 
-**Participate in code review**: Adds comments to pull requests for review feedback, discussions, and collaboration. Supports threaded conversations.
+**Participate in code review discussions**: Adds comments to pull requests for feedback, questions, or discussion.
 
 **Use cases:**
-- Provide code review feedback
+- Provide review feedback
 - Ask questions about specific changes
 - Suggest improvements
-- Participate in technical discussions
-- Document review decisions
+- Participate in code review discussions
 
 Parameters:
-
-- `project`: Bitbucket project key (optional, uses BITBUCKET_DEFAULT_PROJECT if not provided)
+- **Bitbucket Cloud**: `workspace`: Workspace name (optional, uses `BITBUCKET_DEFAULT_PROJECT` if not provided)
+- **Bitbucket Server**: `project`: Project key (optional, uses `BITBUCKET_DEFAULT_PROJECT` if not provided)
 - `repository` (required): Repository slug
 - `prId` (required): Pull request ID
-- `text` (required): Comment content (supports Markdown)
-- `parentId`: Parent comment ID for threaded replies
+- `text` (required): Comment text (supports Markdown)
+- `parentId`: ID of parent comment for threaded replies
 
 ### `get_diff`
 
@@ -178,8 +182,8 @@ Parameters:
 - Code quality assessment
 
 Parameters:
-
-- `project`: Bitbucket project key (optional, uses BITBUCKET_DEFAULT_PROJECT if not provided)
+- **Bitbucket Cloud**: `workspace`: Workspace name (optional, uses `BITBUCKET_DEFAULT_PROJECT` if not provided)
+- **Bitbucket Server**: `project`: Project key (optional, uses `BITBUCKET_DEFAULT_PROJECT` if not provided)
 - `repository` (required): Repository slug
 - `prId` (required): Pull request ID
 - `contextLines`: Context lines around changes (default: 10)
@@ -197,36 +201,45 @@ Parameters:
 
 ## Usage Examples
 
-### Listing Projects and Repositories
+### Bitbucket Cloud Examples
 
 ```bash
-# List all accessible projects
+# List all accessible workspaces
 list_projects
 
-# List repositories in the default project (if BITBUCKET_DEFAULT_PROJECT is set)
-list_repositories
+# List repositories in a specific workspace
+list_repositories --workspace "my-workspace"
+
+# Create a pull request in a workspace
+create_pull_request --workspace "my-workspace" --repository "my-repo" --title "Feature: New functionality" --sourceBranch "feature/new-feature" --targetBranch "main"
+
+# Get pull request details
+get_pull_request --workspace "my-workspace" --repository "my-repo" --prId 123
+```
+
+### Bitbucket Server Examples
+
+```bash
+# List all accessible projects  
+list_projects
 
 # List repositories in a specific project
 list_repositories --project "MYPROJECT"
 
-# List projects with pagination
-list_projects --limit 10 --start 0
-```
-
-### Working with Pull Requests
-
-```bash
-# Create a pull request (using default project)
-create_pull_request --repository "my-repo" --title "Feature: New functionality" --sourceBranch "feature/new-feature" --targetBranch "main"
-
-# Create a pull request with specific project
-create_pull_request --project "MYPROJECT" --repository "my-repo" --title "Bugfix: Critical issue" --sourceBranch "bugfix/critical" --targetBranch "develop" --description "Fixes critical issue #123"
-
-# Get pull request details
-get_pull_request --repository "my-repo" --prId 123
+# Create a pull request in a project
+create_pull_request --project "MYPROJECT" --repository "my-repo" --title "Bugfix: Critical issue" --sourceBranch "bugfix/critical" --targetBranch "develop"
 
 # Merge a pull request with squash strategy
-merge_pull_request --repository "my-repo" --prId 123 --strategy "squash" --message "Feature: New functionality (#123)"
+merge_pull_request --project "MYPROJECT" --repository "my-repo" --prId 123 --strategy "squash"
+```
+
+### Using Default Project/Workspace
+
+```bash
+# If BITBUCKET_DEFAULT_PROJECT is set to "my-workspace" or "MYPROJECT"
+create_pull_request --repository "my-repo" --title "Feature: New functionality" --sourceBranch "feature/new-feature" --targetBranch "main"
+
+get_pull_request --repository "my-repo" --prId 123
 ```
 
 ## Dependencies
@@ -239,11 +252,31 @@ merge_pull_request --repository "my-repo" --prId 123 --strategy "squash" --messa
 
 The server requires configuration in the VSCode MCP settings file. Here's a sample configuration:
 
+### Bitbucket Cloud Configuration
+
 ```json
 {
   "mcpServers": {
     "bitbucket": {
       "command": "node",
+      "args": ["/path/to/bitbucket-server/build/index.js"],
+      "env": {
+        "BITBUCKET_URL": "https://bitbucket.org",
+        "BITBUCKET_TOKEN": "your-app-password-or-access-token",
+        "BITBUCKET_DEFAULT_PROJECT": "your-workspace-name"
+      }
+    }
+  }
+}
+```
+
+### Bitbucket Server Configuration
+
+```json
+{
+  "mcpServers": {
+    "bitbucket": {
+      "command": "node", 
       "args": ["/path/to/bitbucket-server/build/index.js"],
       "env": {
         "BITBUCKET_URL": "https://your-bitbucket-server.com",
@@ -263,18 +296,31 @@ The server requires configuration in the VSCode MCP settings file. Here's a samp
 
 ### Environment Variables
 
-- `BITBUCKET_URL` (required): Base URL of your Bitbucket Server instance
+- `BITBUCKET_URL` (required): 
+  - **Bitbucket Cloud**: `https://bitbucket.org`
+  - **Bitbucket Server**: Base URL of your Bitbucket Server instance (e.g., `https://your-bitbucket-server.com`)
 - Authentication (one of the following is required):
-  - `BITBUCKET_TOKEN`: Personal access token
-  - `BITBUCKET_USERNAME` and `BITBUCKET_PASSWORD`: Basic authentication credentials
-- `BITBUCKET_DEFAULT_PROJECT` (optional): Default project key to use when not specified in tool calls
+  - `BITBUCKET_TOKEN`: 
+    - **Bitbucket Cloud**: App password or OAuth access token
+    - **Bitbucket Server**: Personal access token
+  - `BITBUCKET_USERNAME` and `BITBUCKET_PASSWORD`: Basic authentication credentials (works for both)
+- `BITBUCKET_DEFAULT_PROJECT` (optional): 
+  - **Bitbucket Cloud**: Default workspace name to use when not specified in tool calls
+  - **Bitbucket Server**: Default project key to use when not specified in tool calls
 
-**Note**: With the new optional project support, you can now:
+### Auto-Detection
 
-- Set `BITBUCKET_DEFAULT_PROJECT` to work with a specific project by default
-- Use `list_projects` to discover available projects
-- Use `list_repositories` to browse repositories across projects
-- Override the default project by specifying the `project` parameter in any tool call
+The server automatically detects your Bitbucket instance type:
+- URLs containing `bitbucket.org` or `api.bitbucket.org` → **Bitbucket Cloud**
+- All other URLs → **Bitbucket Server**
+
+This means you can use the same server for both types of Bitbucket instances without any configuration changes!
+
+**Note**: With the flexible project/workspace support, you can now:
+- Set `BITBUCKET_DEFAULT_PROJECT` to work with a specific project/workspace by default
+- Use `list_projects` to discover available projects/workspaces
+- Use `list_repositories` to browse repositories across projects/workspaces
+- Override the default by specifying the `project`/`workspace` parameter in any tool call
 
 ## Logging
 
