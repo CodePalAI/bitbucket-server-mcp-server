@@ -1,619 +1,684 @@
 # Bitbucket MCP Server
 
-A comprehensive Model Context Protocol (MCP) server for Bitbucket Cloud and Bitbucket Server integration. This server provides extensive functionality to interact with Bitbucket repositories, including pull requests, branches, commits, issues, file operations, webhooks, and more.
+A comprehensive Model Context Protocol (MCP) server for Bitbucket Cloud and Bitbucket Server integration. This server provides extensive functionality to interact with Bitbucket repositories, including pull requests, branches, commits, issues, file operations, webhooks, and much more.
 
-## Features
+## 🌟 **Comprehensive Feature Set**
 
-This MCP server provides comprehensive Bitbucket functionality supporting both **Bitbucket Cloud** and **Bitbucket Server** with the following capabilities:
+This MCP server provides **50+ tools** covering virtually every aspect of Bitbucket interaction, supporting both **Bitbucket Cloud** and **Bitbucket Server**:
 
-### 📋 Project & Repository Management
+### 📋 **Project & Repository Management**
 - **Project/Workspace Operations**: List and explore projects (Server) or workspaces (Cloud)
-- **Repository Management**: Create, list, fork, and manage repositories
+- **Repository Management**: Create, list, fork, and manage repositories  
 - **Repository Discovery**: Browse repositories across projects/workspaces
+- **Repository Settings**: Get and update repository configuration, privacy, features
+- **Repository Deletion**: Permanently delete repositories (with confirmation)
+- **Repository Statistics**: Get comprehensive stats, commit activity, insights
+- **Repository Archive**: Download repository snapshots in zip/tar.gz format
 
-### 🔀 Pull Request Management
-- **Complete PR Lifecycle**: Create, review, approve, merge, and decline pull requests
-- **PR Insights**: Get detailed PR information, diffs, and review status
-- **Comment System**: Add and manage PR comments with threading support
-- **Merge Strategies**: Support for merge-commit, squash, and fast-forward merges
+### 🔗 **Pull Request Operations**
+- **Full PR Lifecycle**: Create, get, merge, decline pull requests
+- **PR Comments**: Add comments and participate in discussions
+- **PR Reviews**: Manage reviews and approval workflows
+- **PR Diffs**: Get code differences and changes
+- **PR Activities**: Complete activity timeline and history
+- **PR Commits**: List all commits included in a pull request
 
-### 🌳 Branch Operations
-- **Branch Management**: List, create, and delete branches
-- **Branch Discovery**: Explore branch structure and relationships
-- **Smart Branching**: Create branches from any commit, tag, or branch
+### 🌳 **Branch Management**
+- **Branch Operations**: List, create, and delete branches
+- **Branch Restrictions**: Manage branch permissions and protection rules
+- **Default Reviewers**: Configure automatic reviewer assignments
 
-### 📝 Commit Operations
-- **Commit History**: List commits with filtering by branch or author
-- **Commit Details**: Get comprehensive commit information including changes
-- **Commit Analysis**: Review code changes and commit metadata
+### 📝 **Commit Operations**
+- **Commit History**: List commits with filtering options
+- **Commit Details**: Get detailed commit information
+- **Commit Comments**: Add and list comments on specific commits
+- **Build Status**: Manage CI/CD build statuses on commits
 
-### 🐛 Issue Tracking (Cloud Only)
-- **Issue Management**: Create, list, and manage issues
-- **Issue Insights**: Get detailed issue information and status
-- **Issue Organization**: Filter by state, priority, and assignee
+### 🐛 **Issue Tracking** (Cloud)
+- **Issue Management**: Create, list, and get issue details
+- **Issue Comments**: Participate in issue discussions
 
-### 📁 File Operations
-- **File Access**: Read file contents from any branch or commit
-- **Directory Browsing**: List directory contents and explore repository structure
-- **Content Retrieval**: Access files at specific points in history
+### 📁 **File Operations**
+- **File Content**: Read files from repositories
+- **Directory Browsing**: Explore repository structure
+- **File History**: Track how files have changed over time
+- **Code Search**: Search through repository content
 
-### 🏷️ Tag Operations
-- **Release Management**: List and create tags for releases and milestones
-- **Version Control**: Tag specific commits with messages
-- **Release History**: Track project versions and releases
+### 🔑 **Security & Access Management**
+- **SSH Keys**: Manage user SSH keys for Git access
+- **Deploy Keys**: Manage repository-specific deployment keys
+- **Repository Watchers**: Monitor who's watching repositories
 
-### 👥 User Management
-- **User Information**: Get user profiles and account details
-- **Team Discovery**: Understand team membership and permissions
+### 🏷️ **Tag Operations**
+- **Tag Management**: List, create tags for releases and milestones
 
-### 🔗 Webhook Management
-- **Integration Setup**: Create and manage webhooks for CI/CD and automation
-- **Event Handling**: Configure webhooks for various repository events
-- **Webhook Maintenance**: List and delete webhooks as needed
+### 🎯 **Automation & Integration**
+- **Webhooks**: Create, list, and delete webhook integrations
+- **Build Statuses**: Report CI/CD pipeline results
 
-## Installation
+### 📚 **Code Sharing** (Cloud Only)
+- **Snippets**: Create, list, and share code snippets
 
+### 👥 **User Operations**
+- **User Information**: Get user profiles and details
+
+## 🚀 **Installation & Setup**
+
+### **Prerequisites**
+- Node.js 18+ 
+- npm or yarn
+- Bitbucket Cloud account or Bitbucket Server instance
+
+### **Installation**
 ```bash
+# Clone or download this MCP server
+git clone <repository-url>
+cd bitbucket-server-mcp-server
+
+# Install dependencies
 npm install
+
+# Build the server
 npm run build
 ```
 
-## Configuration
+### **Configuration**
 
-The server supports both Bitbucket Cloud and Bitbucket Server. Configure using environment variables:
-
-### Required Configuration
+#### **Environment Variables**
+Configure the server using environment variables:
 
 ```bash
-# Bitbucket instance URL
-BITBUCKET_URL=https://your-bitbucket-instance.com
-# For Bitbucket Cloud: https://bitbucket.org or https://api.bitbucket.org
+# Required: Bitbucket instance URL
+BITBUCKET_URL=https://api.bitbucket.org/2.0  # For Bitbucket Cloud
+# OR
+BITBUCKET_URL=https://your-server.com        # For Bitbucket Server
 
-# Default project/workspace (optional but recommended)
-BITBUCKET_DEFAULT_PROJECT=YOUR_PROJECT_KEY  # For Server
-BITBUCKET_DEFAULT_PROJECT=your-workspace   # For Cloud
-```
-
-### Authentication Options
-
-#### Option 1: Personal Access Token (Recommended)
-```bash
+# Authentication (choose one method)
+# Method 1: Personal Access Token (recommended)
 BITBUCKET_TOKEN=your_personal_access_token
-```
 
-#### Option 2: Username + App Password (Cloud) / Password (Server)
-```bash
+# Method 2: Username + App Password (Cloud) or Password (Server)
 BITBUCKET_USERNAME=your_username
-BITBUCKET_PASSWORD=your_app_password_or_password  # App Password for Cloud
+BITBUCKET_PASSWORD=your_app_password_or_password
+
+# Optional: Default project/workspace (reduces need to specify in each call)
+BITBUCKET_DEFAULT_PROJECT=PROJECT_KEY      # For Server
+# OR
+BITBUCKET_DEFAULT_PROJECT=workspace_name   # For Cloud
 ```
 
-### Authentication Setup Guide
+#### **Bitbucket Cloud Setup**
+1. **Create App Password**:
+   - Go to [Bitbucket Settings > App Passwords](https://bitbucket.org/account/settings/app-passwords/)
+   - Click "Create app password"
+   - Grant permissions: `Repositories: Read/Write`, `Pull requests: Read/Write`, `Account: Read`
+   - Use this as `BITBUCKET_TOKEN` or `BITBUCKET_PASSWORD`
 
-#### Bitbucket Cloud
-1. **Personal Access Token** (Recommended):
-   - Go to Bitbucket → Settings → Personal Bitbucket settings → App passwords
-   - Create a new app password with required scopes:
-     - `Repositories: Read, Write`
-     - `Pull requests: Read, Write`
-     - `Issues: Read, Write`
-     - `Account: Read`
-   - Use as `BITBUCKET_TOKEN`
+2. **Get Workspace Name**:
+   - Your workspace name is in the URL: `https://bitbucket.org/workspace-name/`
+   - Use this as `BITBUCKET_DEFAULT_PROJECT`
 
-2. **Username + App Password**:
-   - Same as above, but use `BITBUCKET_USERNAME` + `BITBUCKET_PASSWORD`
+#### **Bitbucket Server Setup**
+1. **Create Personal Access Token**:
+   - Go to Profile > Personal access tokens > Create token
+   - Grant appropriate permissions for repositories
+   - Use this as `BITBUCKET_TOKEN`
 
-#### Bitbucket Server
-1. **Personal Access Token** (Recommended):
-   - Go to Bitbucket → Manage account → Personal access tokens
-   - Create token with `REPO_READ`, `REPO_WRITE`, and `PROJECT_READ` permissions
-   - Use as `BITBUCKET_TOKEN`
+2. **Get Project Key**:
+   - Project key is shown in your Bitbucket Server project settings
+   - Use this as `BITBUCKET_DEFAULT_PROJECT`
 
-2. **Username + Password**:
-   - Use your regular Bitbucket Server credentials
-   - Set `BITBUCKET_USERNAME` and `BITBUCKET_PASSWORD`
+### **MCP Client Configuration**
 
-## Usage Examples
+Add to your MCP client configuration (e.g., Cline, Claude Desktop):
 
-### Project and Repository Management
-
-#### List Projects/Workspaces
-```json
-{
-  "tool": "list_projects",
-  "arguments": {
-    "limit": 50
-  }
-}
-```
-
-#### List Repositories
-```json
-{
-  "tool": "list_repositories",
-  "arguments": {
-    "project": "PROJECT_KEY",  // For Server
-    "workspace": "workspace",  // For Cloud
-    "limit": 25
-  }
-}
-```
-
-#### Create Repository
-```json
-{
-  "tool": "create_repository",
-  "arguments": {
-    "name": "my-new-repo",
-    "description": "A new repository for my project",
-    "isPrivate": true,
-    "hasIssues": true,
-    "language": "TypeScript"
-  }
-}
-```
-
-#### Fork Repository
-```json
-{
-  "tool": "fork_repository",
-  "arguments": {
-    "repository": "original-repo",
-    "forkWorkspace": "my-workspace",  // Cloud
-    "forkProject": "MY_PROJECT",     // Server
-    "name": "my-fork"
-  }
-}
-```
-
-### Branch Management
-
-#### List Branches
-```json
-{
-  "tool": "list_branches",
-  "arguments": {
-    "repository": "my-repo",
-    "limit": 50
-  }
-}
-```
-
-#### Create Branch
-```json
-{
-  "tool": "create_branch",
-  "arguments": {
-    "repository": "my-repo",
-    "branchName": "feature/new-feature",
-    "startPoint": "main"
-  }
-}
-```
-
-#### Delete Branch
-```json
-{
-  "tool": "delete_branch",
-  "arguments": {
-    "repository": "my-repo",
-    "branchName": "feature/old-feature"
-  }
-}
-```
-
-### Pull Request Operations
-
-#### Create Pull Request
-```json
-{
-  "tool": "create_pull_request",
-  "arguments": {
-    "repository": "my-repo",
-    "title": "Add new authentication feature",
-    "description": "This PR implements OAuth2 authentication with proper error handling.",
-    "sourceBranch": "feature/oauth2",
-    "targetBranch": "main",
-    "reviewers": ["alice", "bob"]
-  }
-}
-```
-
-#### Get Pull Request Details
-```json
-{
-  "tool": "get_pull_request",
-  "arguments": {
-    "repository": "my-repo",
-    "prId": 123
-  }
-}
-```
-
-#### Merge Pull Request
-```json
-{
-  "tool": "merge_pull_request",
-  "arguments": {
-    "repository": "my-repo",
-    "prId": 123,
-    "strategy": "squash",
-    "message": "Merge feature: Add OAuth2 authentication"
-  }
-}
-```
-
-#### Add PR Comment
-```json
-{
-  "tool": "add_comment",
-  "arguments": {
-    "repository": "my-repo",
-    "prId": 123,
-    "text": "This looks great! Just one small suggestion on line 45."
-  }
-}
-```
-
-#### Get PR Diff
-```json
-{
-  "tool": "get_diff",
-  "arguments": {
-    "repository": "my-repo",
-    "prId": 123,
-    "contextLines": 5
-  }
-}
-```
-
-### Commit Operations
-
-#### List Commits
-```json
-{
-  "tool": "list_commits",
-  "arguments": {
-    "repository": "my-repo",
-    "branch": "main",
-    "limit": 25
-  }
-}
-```
-
-#### Get Commit Details
-```json
-{
-  "tool": "get_commit",
-  "arguments": {
-    "repository": "my-repo",
-    "commitId": "abc123def456"
-  }
-}
-```
-
-### Issue Management (Cloud Only)
-
-#### List Issues
-```json
-{
-  "tool": "list_issues",
-  "arguments": {
-    "repository": "my-repo",
-    "state": "open",
-    "limit": 25
-  }
-}
-```
-
-#### Create Issue
-```json
-{
-  "tool": "create_issue",
-  "arguments": {
-    "repository": "my-repo",
-    "title": "Login button not working on mobile",
-    "content": "When using Safari on iOS, the login button doesn't respond to taps.",
-    "kind": "bug",
-    "priority": "major",
-    "assignee": "alice"
-  }
-}
-```
-
-#### Get Issue Details
-```json
-{
-  "tool": "get_issue",
-  "arguments": {
-    "repository": "my-repo",
-    "issueId": 456
-  }
-}
-```
-
-### File Operations
-
-#### Get File Content
-```json
-{
-  "tool": "get_file_content",
-  "arguments": {
-    "repository": "my-repo",
-    "path": "src/config.json",
-    "branch": "main"
-  }
-}
-```
-
-#### List Directory Contents
-```json
-{
-  "tool": "list_directory",
-  "arguments": {
-    "repository": "my-repo",
-    "path": "src/components",
-    "branch": "develop"
-  }
-}
-```
-
-### Tag Operations
-
-#### List Tags
-```json
-{
-  "tool": "list_tags",
-  "arguments": {
-    "repository": "my-repo",
-    "limit": 25
-  }
-}
-```
-
-#### Create Tag
-```json
-{
-  "tool": "create_tag",
-  "arguments": {
-    "repository": "my-repo",
-    "tagName": "v1.2.0",
-    "commitId": "abc123def456",
-    "message": "Release version 1.2.0 with new authentication features"
-  }
-}
-```
-
-### User Operations
-
-#### Get User Information
-```json
-{
-  "tool": "get_user",
-  "arguments": {
-    "username": "alice"
-  }
-}
-```
-
-#### Get Current User
-```json
-{
-  "tool": "get_user",
-  "arguments": {}
-}
-```
-
-### Webhook Management
-
-#### List Webhooks
-```json
-{
-  "tool": "list_webhooks",
-  "arguments": {
-    "repository": "my-repo"
-  }
-}
-```
-
-#### Create Webhook
-```json
-{
-  "tool": "create_webhook",
-  "arguments": {
-    "repository": "my-repo",
-    "url": "https://my-ci-system.com/bitbucket-webhook",
-    "description": "CI/CD pipeline trigger",
-    "events": ["repo:push", "pullrequest:created", "pullrequest:merged"],
-    "active": true
-  }
-}
-```
-
-#### Delete Webhook
-```json
-{
-  "tool": "delete_webhook",
-  "arguments": {
-    "repository": "my-repo",
-    "webhookId": "webhook-uuid-here"
-  }
-}
-```
-
-## Available Tools
-
-| Tool | Description | Cloud | Server |
-|------|-------------|-------|--------|
-| `list_projects` | List workspaces/projects | ✅ | ✅ |
-| `list_repositories` | List repositories | ✅ | ✅ |
-| `create_repository` | Create new repository | ✅ | ✅ |
-| `fork_repository` | Fork repository | ✅ | ✅ |
-| `list_branches` | List branches | ✅ | ✅ |
-| `create_branch` | Create new branch | ✅ | ✅ |
-| `delete_branch` | Delete branch | ✅ | ✅ |
-| `list_commits` | List commits | ✅ | ✅ |
-| `get_commit` | Get commit details | ✅ | ✅ |
-| `create_pull_request` | Create pull request | ✅ | ✅ |
-| `get_pull_request` | Get PR details | ✅ | ✅ |
-| `merge_pull_request` | Merge pull request | ✅ | ✅ |
-| `decline_pull_request` | Decline pull request | ✅ | ✅ |
-| `add_comment` | Add PR comment | ✅ | ✅ |
-| `get_diff` | Get PR diff | ✅ | ✅ |
-| `get_reviews` | Get PR reviews | ✅ | ✅ |
-| `list_issues` | List issues | ✅ | ❌* |
-| `create_issue` | Create issue | ✅ | ❌* |
-| `get_issue` | Get issue details | ✅ | ❌* |
-| `get_file_content` | Get file content | ✅ | ✅ |
-| `list_directory` | List directory | ✅ | ✅ |
-| `list_tags` | List tags | ✅ | ✅ |
-| `create_tag` | Create tag | ✅ | ✅ |
-| `get_user` | Get user info | ✅ | ✅ |
-| `list_webhooks` | List webhooks | ✅ | ✅ |
-| `create_webhook` | Create webhook | ✅ | ✅ |
-| `delete_webhook` | Delete webhook | ✅ | ✅ |
-
-*Issue tracking is not available by default in Bitbucket Server
-
-## Error Handling
-
-The server provides comprehensive error handling with specific guidance:
-
-- **Authentication Errors (401)**: Detailed guidance for setting up credentials
-- **Permission Errors (403)**: Information about required permissions
-- **Not Found Errors (404)**: Clear indication of missing resources
-- **Validation Errors (400)**: Specific field validation messages
-
-## Development
-
-### Running the Server
-
-```bash
-npm run dev
-```
-
-### Testing
-
-```bash
-npm test
-```
-
-### Building
-
-```bash
-npm run build
-```
-
-## Advanced Configuration
-
-### Using with Different MCP Clients
-
-This server works with any MCP-compatible client. Example configuration for popular clients:
-
-#### Claude Desktop
 ```json
 {
   "mcpServers": {
     "bitbucket": {
       "command": "node",
-      "args": ["path/to/bitbucket-server-mcp-server/dist/index.js"],
+      "args": ["/path/to/bitbucket-server-mcp-server/build/index.js"],
       "env": {
-        "BITBUCKET_URL": "https://your-bitbucket-instance.com",
-        "BITBUCKET_TOKEN": "your_token",
-        "BITBUCKET_DEFAULT_PROJECT": "PROJECT_KEY"
+        "BITBUCKET_URL": "https://api.bitbucket.org/2.0",
+        "BITBUCKET_TOKEN": "your_token_here",
+        "BITBUCKET_DEFAULT_PROJECT": "your_workspace_or_project"
       }
     }
   }
 }
 ```
 
-### Environment Variables Reference
+## 📖 **Complete Tool Reference**
 
-| Variable | Description | Required | Default |
-|----------|-------------|----------|---------|
-| `BITBUCKET_URL` | Bitbucket instance URL | Yes | - |
-| `BITBUCKET_TOKEN` | Personal access token | No* | - |
-| `BITBUCKET_USERNAME` | Username for basic auth | No* | - |
-| `BITBUCKET_PASSWORD` | Password/app password | No* | - |
-| `BITBUCKET_DEFAULT_PROJECT` | Default project/workspace | No | - |
-| `DEBUG` | Enable debug logging | No | false |
+### **Project & Repository Management**
 
-*Either `BITBUCKET_TOKEN` or `BITBUCKET_USERNAME`+`BITBUCKET_PASSWORD` required
+#### `list_projects`
+Discover and list all projects/workspaces you have access to.
+```
+Arguments: limit?, start?
+```
 
-## Security Considerations
+#### `list_repositories`
+Browse repositories within a project/workspace.
+```
+Arguments: [project/workspace]?, limit?, start?
+```
+
+#### `create_repository`
+Create a new repository.
+```
+Arguments: name, [project/workspace]?, description?, isPrivate?, forkPolicy?, language?, hasIssues?, hasWiki?
+```
+
+#### `fork_repository`
+Create a fork of an existing repository.
+```
+Arguments: repository, [project/workspace]?, [forkProject/forkWorkspace]?, name?
+```
+
+#### `get_repository_settings`
+Get comprehensive repository settings and configuration.
+```
+Arguments: repository, [project/workspace]?
+```
+
+#### `update_repository_settings`
+Update repository settings and configuration.
+```
+Arguments: repository, [project/workspace]?, name?, description?, isPrivate?, hasIssues?, hasWiki?, forkPolicy?, language?, website?
+```
+
+#### `delete_repository`
+⚠️ **Permanently delete a repository** (irreversible).
+```
+Arguments: repository, [project/workspace]?, confirmName
+```
+
+#### `get_repository_stats`
+Get repository statistics and insights.
+```
+Arguments: repository, [project/workspace]?
+```
+
+#### `get_repository_archive`
+Get download links for repository archives.
+```
+Arguments: repository, [project/workspace]?, ref?, format?
+```
+
+### **Pull Request Operations**
+
+#### `create_pull_request`
+Create a new pull request.
+```
+Arguments: repository, title, sourceBranch, targetBranch, [project/workspace]?, description?, reviewers?
+```
+
+#### `get_pull_request`
+Get comprehensive pull request details.
+```
+Arguments: repository, prId, [project/workspace]?
+```
+
+#### `merge_pull_request`
+Merge an approved pull request.
+```
+Arguments: repository, prId, [project/workspace]?, message?, strategy?
+```
+
+#### `decline_pull_request`
+Decline/reject a pull request.
+```
+Arguments: repository, prId, [project/workspace]?, message?
+```
+
+#### `add_comment`
+Add a comment to a pull request.
+```
+Arguments: repository, prId, text, [project/workspace]?, parentId?
+```
+
+#### `get_diff`
+Get code differences for a pull request.
+```
+Arguments: repository, prId, [project/workspace]?, contextLines?
+```
+
+#### `get_reviews`
+Get review history and approval status.
+```
+Arguments: repository, prId, [project/workspace]?
+```
+
+#### `get_pull_request_activity`
+Get complete activity timeline for a pull request.
+```
+Arguments: repository, prId, [project/workspace]?
+```
+
+#### `get_pull_request_commits`
+List all commits included in a pull request.
+```
+Arguments: repository, prId, [project/workspace]?, limit?, start?
+```
+
+### **Branch Management**
+
+#### `list_branches`
+List all branches in a repository.
+```
+Arguments: repository, [project/workspace]?, limit?, start?
+```
+
+#### `create_branch`
+Create a new branch.
+```
+Arguments: repository, branchName, [project/workspace]?, startPoint?
+```
+
+#### `delete_branch`
+Delete a branch from a repository.
+```
+Arguments: repository, branchName, [project/workspace]?
+```
+
+#### `list_branch_restrictions`
+List branch permissions and restrictions.
+```
+Arguments: repository, [project/workspace]?
+```
+
+#### `create_branch_restriction`
+Create branch protection rules.
+```
+Arguments: repository, kind, pattern, [project/workspace]?, users?, groups?
+```
+
+### **Commit Operations**
+
+#### `list_commits`
+List commits with optional filtering.
+```
+Arguments: repository, [project/workspace]?, branch?, limit?, start?
+```
+
+#### `get_commit`
+Get detailed information about a specific commit.
+```
+Arguments: repository, commitId, [project/workspace]?
+```
+
+#### `list_commit_comments`
+List all comments on a commit.
+```
+Arguments: repository, commitId, [project/workspace]?
+```
+
+#### `create_commit_comment`
+Add a comment to a commit.
+```
+Arguments: repository, commitId, content, [project/workspace]?, path?, line?
+```
+
+### **Issue Management** (Cloud Only)
+
+#### `list_issues`
+List issues with optional filtering.
+```
+Arguments: repository, [project/workspace]?, state?, limit?, start?
+```
+
+#### `create_issue`
+Create a new issue.
+```
+Arguments: repository, title, [project/workspace]?, content?, kind?, priority?, assignee?
+```
+
+#### `get_issue`
+Get detailed issue information.
+```
+Arguments: repository, issueId, [project/workspace]?
+```
+
+#### `list_issue_comments`
+List all comments on an issue.
+```
+Arguments: repository, issueId, [project/workspace]?
+```
+
+#### `create_issue_comment`
+Add a comment to an issue.
+```
+Arguments: repository, issueId, content, [project/workspace]?
+```
+
+### **File Operations**
+
+#### `get_file_content`
+Retrieve file content from repository.
+```
+Arguments: repository, path, [project/workspace]?, branch?, commitId?
+```
+
+#### `list_directory`
+List contents of a directory.
+```
+Arguments: repository, [project/workspace]?, path?, branch?, commitId?
+```
+
+#### `get_file_history`
+Get commit history for a specific file.
+```
+Arguments: repository, path, [project/workspace]?, branch?, limit?, start?
+```
+
+#### `search_code`
+Search for code within a repository.
+```
+Arguments: repository, query, [project/workspace]?, type?, limit?, start?
+```
+
+### **Security & Access Management**
+
+#### `list_ssh_keys`
+List SSH keys for user authentication.
+```
+Arguments: username?
+```
+
+#### `create_ssh_key`
+Add a new SSH key to user account.
+```
+Arguments: title, key
+```
+
+#### `delete_ssh_key`
+Delete an SSH key from user account.
+```
+Arguments: keyId
+```
+
+#### `list_deploy_keys`
+List deploy keys for a repository.
+```
+Arguments: repository, [project/workspace]?
+```
+
+#### `create_deploy_key`
+Create a new deploy key for automated access.
+```
+Arguments: repository, title, key, [project/workspace]?, readOnly?
+```
+
+#### `delete_deploy_key`
+Delete a deploy key from repository.
+```
+Arguments: repository, keyId, [project/workspace]?
+```
+
+#### `list_watchers`
+List users watching a repository.
+```
+Arguments: repository, [project/workspace]?
+```
+
+#### `watch_repository`
+Start watching a repository.
+```
+Arguments: repository, [project/workspace]?
+```
+
+#### `unwatch_repository`
+Stop watching a repository.
+```
+Arguments: repository, [project/workspace]?
+```
+
+### **Tag Management**
+
+#### `list_tags`
+List all tags in a repository.
+```
+Arguments: repository, [project/workspace]?, limit?, start?
+```
+
+#### `create_tag`
+Create a new tag for releases.
+```
+Arguments: repository, tagName, [project/workspace]?, commitId?, message?
+```
+
+### **Build Status Management**
+
+#### `list_build_statuses`
+List build statuses for a commit.
+```
+Arguments: repository, commitId, [project/workspace]?
+```
+
+#### `create_build_status`
+Report CI/CD pipeline results.
+```
+Arguments: repository, commitId, state, key, [project/workspace]?, name?, url?, description?
+```
+
+### **Default Reviewers**
+
+#### `list_default_reviewers`
+List default reviewers for a repository.
+```
+Arguments: repository, [project/workspace]?
+```
+
+#### `add_default_reviewer`
+Add a default reviewer to repository.
+```
+Arguments: repository, username, [project/workspace]?
+```
+
+#### `remove_default_reviewer`
+Remove a default reviewer from repository.
+```
+Arguments: repository, username, [project/workspace]?
+```
+
+### **Webhook Integration**
+
+#### `list_webhooks`
+List all webhooks for a repository.
+```
+Arguments: repository, [project/workspace]?
+```
+
+#### `create_webhook`
+Create a new webhook for automation.
+```
+Arguments: repository, url, events, [project/workspace]?, description?, active?
+```
+
+#### `delete_webhook`
+Delete a webhook from repository.
+```
+Arguments: repository, webhookId, [project/workspace]?
+```
+
+### **Code Snippets** (Cloud Only)
+
+#### `list_snippets`
+List code snippets.
+```
+Arguments: workspace?, limit?, start?
+```
+
+#### `create_snippet`
+Create a new code snippet.
+```
+Arguments: title, files, isPrivate?
+```
+
+#### `get_snippet`
+Get details of a specific snippet.
+```
+Arguments: snippetId, workspace?
+```
+
+### **User Operations**
+
+#### `get_user`
+Get user profile information.
+```
+Arguments: username?
+```
+
+## 🔧 **Advanced Usage Examples**
+
+### **Complete PR Workflow**
+```javascript
+// 1. Create a pull request
+await createPullRequest({
+  repository: "my-repo",
+  title: "Add new feature",
+  sourceBranch: "feature/new-feature", 
+  targetBranch: "main",
+  description: "This PR adds...",
+  reviewers: ["reviewer1", "reviewer2"]
+});
+
+// 2. Get PR details
+await getPullRequest({
+  repository: "my-repo",
+  prId: 123
+});
+
+// 3. Add review comment
+await addComment({
+  repository: "my-repo", 
+  prId: 123,
+  text: "LGTM! Just one small suggestion..."
+});
+
+// 4. Check build status
+await listBuildStatuses({
+  repository: "my-repo",
+  commitId: "abc123def"
+});
+
+// 5. Merge when ready
+await mergePullRequest({
+  repository: "my-repo",
+  prId: 123,
+  strategy: "squash"
+});
+```
+
+### **Repository Management**
+```javascript
+// Create and configure repository
+await createRepository({
+  name: "new-project",
+  description: "My awesome project",
+  isPrivate: true,
+  hasIssues: true
+});
+
+// Set up branch protection
+await createBranchRestriction({
+  repository: "new-project",
+  kind: "require_approvals",
+  pattern: "main",
+  users: ["admin1", "admin2"]
+});
+
+// Add default reviewers
+await addDefaultReviewer({
+  repository: "new-project", 
+  username: "team-lead"
+});
+
+// Configure webhooks
+await createWebhook({
+  repository: "new-project",
+  url: "https://ci.company.com/webhook",
+  events: ["repo:push", "pullrequest:created"]
+});
+```
+
+### **Code Exploration**
+```javascript
+// Search for specific code
+await searchCode({
+  repository: "my-repo",
+  query: "function authenticate",
+  type: "code"
+});
+
+// Get file content
+await getFileContent({
+  repository: "my-repo", 
+  path: "src/auth.js",
+  branch: "develop"
+});
+
+// Check file history
+await getFileHistory({
+  repository: "my-repo",
+  path: "src/auth.js",
+  limit: 10
+});
+```
+
+## 🔒 **Security Best Practices**
 
 1. **Use Personal Access Tokens**: Preferred over username/password
-2. **Minimal Permissions**: Grant only necessary permissions to tokens
-3. **Secure Storage**: Store credentials securely, never in code
-4. **Regular Rotation**: Rotate access tokens periodically
-5. **Environment Variables**: Use environment variables for all credentials
+2. **Minimal Permissions**: Grant only required permissions to tokens
+3. **Environment Variables**: Never hardcode credentials
+4. **Token Rotation**: Regularly rotate access tokens
+5. **Audit Access**: Regularly review deploy keys and webhooks
 
-## Troubleshooting
+## 🐛 **Troubleshooting**
 
-### Common Issues
+### **Common Issues**
 
-#### Authentication Failed
-- Verify credentials are correct
-- Check token/password hasn't expired
-- Ensure proper permissions are granted
-- For Cloud: Use App Password, not account password
+#### **Authentication Errors (401)**
+- Verify your token/credentials are correct
+- Check token permissions include required scopes
+- For Cloud: ensure App Password has correct permissions
+- For Server: verify Personal Access Token is valid
 
-#### Repository Not Found
-- Verify repository name/slug is correct
-- Check project/workspace parameter
-- Ensure you have access to the repository
+#### **Permission Errors (403)**  
+- Check you have access to the repository/project
+- Verify your role has sufficient permissions
+- For organization repos, ensure you're a member
 
-#### Network Issues
-- Verify Bitbucket URL is correct and accessible
-- Check firewall/proxy settings
-- For Server: Ensure API is enabled
+#### **Not Found Errors (404)**
+- Verify repository/project names are correct
+- Check if repository exists and is accessible
+- Ensure workspace/project key is spelled correctly
 
-### Debugging
-
+### **Debug Mode**
 Enable debug logging:
 ```bash
-DEBUG=true npm start
+DEBUG=1 node build/index.js
 ```
 
-Check the log file:
-```bash
-tail -f bitbucket.log
-```
-
-## Contributing
+## 🤝 **Contributing**
 
 1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable  
+5. Submit a pull request
 
-## License
+## 📄 **License**
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the LICENSE file for details.
 
-## Support
+## 🙏 **Acknowledgments**
 
-For issues and questions:
-- Check the [troubleshooting section](#troubleshooting)
-- Review [Bitbucket API documentation](https://developer.atlassian.com/bitbucket/api/2/reference/)
-- Create an issue in this repository
+- Bitbucket API documentation and team
+- Model Context Protocol (MCP) framework
+- The open source community
 
-## Changelog
+---
 
-### v2.0.0 (Latest)
-- ✨ Added comprehensive branch management
-- ✨ Added commit operations and history
-- ✨ Added issue tracking (Cloud only)
-- ✨ Added file operations and directory browsing
-- ✨ Added tag management
-- ✨ Added repository creation and forking
-- ✨ Added user management operations
-- ✨ Added webhook management
-- 🔧 Enhanced error handling and validation
-- 📚 Comprehensive documentation and examples
-
-### v1.0.0
-- 🎉 Initial release with basic PR management
-- ⚡ Support for Bitbucket Cloud and Server
-- 🔐 Multiple authentication methods
-- 📋 Project and repository listing
+**Made with ❤️ for developers who love automation and seamless integrations.**
