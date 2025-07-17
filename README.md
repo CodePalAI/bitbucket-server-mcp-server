@@ -1,6 +1,6 @@
 # Bitbucket MCP Server
 
-MCP (Model Context Protocol) server for **both Bitbucket Cloud and Bitbucket Server** Pull Request management. This server provides tools and resources to interact with Bitbucket APIs through the MCP protocol with **automatic detection** of your Bitbucket instance type.
+MCP (Model Context Protocol) server for **both Bitbucket Cloud and Bitbucket Server** Pull Request management. This server provides tools and resources to interact with Bitbucket APIs through the MCP protocol with **automatic detection** of your Bitbucket instance type and **full App Password support**.
 
 [![smithery badge](https://smithery.ai/badge/@garc33/bitbucket-server-mcp-server)](https://smithery.ai/server/@garc33/bitbucket-server-mcp-server)
 <a href="https://glama.ai/mcp/servers/jskr5c1zq3"><img width="380" height="200" src="https://glama.ai/mcp/servers/jskr5c1zq3/badge" alt="Bitbucket Server MCP server" /></a>
@@ -8,12 +8,14 @@ MCP (Model Context Protocol) server for **both Bitbucket Cloud and Bitbucket Ser
 ## ✨ Key Features
 
 - **🔄 Auto-Detection**: Automatically detects Bitbucket Cloud (`bitbucket.org`) vs Bitbucket Server and uses appropriate APIs
-- **☁️ Bitbucket Cloud Support**: Full support for Bitbucket Cloud API v2.0 with workspaces
-- **🏢 Bitbucket Server Support**: Complete support for Bitbucket Server API v1.0 with projects
+- **🔐 Full App Password Support**: Complete support for Bitbucket Cloud App Passwords with proper scopes and validation
+- **☁️ Bitbucket Cloud Support**: Full support for Bitbucket Cloud API v2.0 with workspaces and Basic Authentication
+- **🏢 Bitbucket Server Support**: Complete support for Bitbucket Server API v1.0 with projects and Personal Access Tokens
 - **🔍 Project/Workspace Discovery**: List all accessible projects (Server) or workspaces (Cloud)
 - **📁 Repository Browsing**: Explore repositories across projects/workspaces
-- **🔧 Flexible Configuration**: Specify project/workspace per command or use defaults
-- **📖 Enhanced Documentation**: Improved README with usage examples and better configuration guidance
+- **🔧 Flexible Authentication**: Multiple authentication methods for each platform
+- **✅ Enhanced Validation**: Comprehensive configuration validation with helpful error messages
+- **📖 Comprehensive Documentation**: Detailed setup guides for both platforms
 
 ## Requirements
 
@@ -250,9 +252,45 @@ get_pull_request --repository "my-repo" --prId 123
 
 ## Configuration
 
-The server requires configuration in the VSCode MCP settings file. Here's a sample configuration:
+The server supports **both Bitbucket Cloud and Bitbucket Server** with automatic detection and appropriate authentication methods. Choose the configuration that matches your setup:
 
-### Bitbucket Cloud Configuration
+### 🌐 Bitbucket Cloud Configuration
+
+Bitbucket Cloud (bitbucket.org) uses **Basic Authentication** with your username and either an **App Password** (recommended) or your account password.
+
+#### Option 1: App Password Authentication (Recommended) ⭐
+
+**Step 1:** Create an App Password
+1. Go to [Bitbucket App Passwords](https://bitbucket.org/account/settings/app-passwords/)
+2. Click "Create app password"
+3. Give it a label (e.g., "MCP Server")
+4. Select these permissions:
+   - ✅ **Account** → Read
+   - ✅ **Repositories** → Read, Write  
+   - ✅ **Pull requests** → Read, Write
+5. Copy the generated password (you won't see it again!)
+
+**Step 2:** Configure Environment Variables
+```json
+{
+  "mcpServers": {
+    "bitbucket": {
+      "command": "node",
+      "args": ["/path/to/bitbucket-server/build/index.js"],
+      "env": {
+        "BITBUCKET_URL": "https://bitbucket.org",
+        "BITBUCKET_USERNAME": "your-bitbucket-username",
+        "BITBUCKET_TOKEN": "your-app-password-here",
+        "BITBUCKET_DEFAULT_PROJECT": "your-workspace-name"
+      }
+    }
+  }
+}
+```
+
+#### Option 2: Username/Password Authentication
+
+**⚠️ Less secure** - only use if you can't create App Passwords:
 
 ```json
 {
@@ -262,7 +300,8 @@ The server requires configuration in the VSCode MCP settings file. Here's a samp
       "args": ["/path/to/bitbucket-server/build/index.js"],
       "env": {
         "BITBUCKET_URL": "https://bitbucket.org",
-        "BITBUCKET_TOKEN": "your-app-password-or-access-token",
+        "BITBUCKET_USERNAME": "your-bitbucket-username",
+        "BITBUCKET_PASSWORD": "your-account-password",
         "BITBUCKET_DEFAULT_PROJECT": "your-workspace-name"
       }
     }
@@ -270,7 +309,39 @@ The server requires configuration in the VSCode MCP settings file. Here's a samp
 }
 ```
 
-### Bitbucket Server Configuration
+### 🏢 Bitbucket Server Configuration  
+
+Bitbucket Server (self-hosted) supports **Personal Access Tokens** (recommended) or **Basic Authentication**.
+
+#### Option 1: Personal Access Token (Recommended) ⭐
+
+**Step 1:** Create a Personal Access Token
+1. Go to your Bitbucket Server → Profile → Personal access tokens
+2. Click "Create a token" 
+3. Give it a name (e.g., "MCP Server")
+4. Select these permissions:
+   - ✅ **Project admin** or **Project write**
+   - ✅ **Repository admin** or **Repository write**
+5. Copy the generated token
+
+**Step 2:** Configure Environment Variables
+```json
+{
+  "mcpServers": {
+    "bitbucket": {
+      "command": "node",
+      "args": ["/path/to/bitbucket-server/build/index.js"],
+      "env": {
+        "BITBUCKET_URL": "https://your-bitbucket-server.com",
+        "BITBUCKET_TOKEN": "your-personal-access-token",
+        "BITBUCKET_DEFAULT_PROJECT": "PROJECT_KEY"
+      }
+    }
+  }
+}
+```
+
+#### Option 2: Username/Password Authentication
 
 ```json
 {
@@ -280,47 +351,104 @@ The server requires configuration in the VSCode MCP settings file. Here's a samp
       "args": ["/path/to/bitbucket-server/build/index.js"],
       "env": {
         "BITBUCKET_URL": "https://your-bitbucket-server.com",
-        // Authentication (choose one):
-        // Option 1: Personal Access Token
-        "BITBUCKET_TOKEN": "your-access-token",
-        // Option 2: Username/Password
         "BITBUCKET_USERNAME": "your-username",
         "BITBUCKET_PASSWORD": "your-password",
-        // Optional: Default project
-        "BITBUCKET_DEFAULT_PROJECT": "your-default-project"
+        "BITBUCKET_DEFAULT_PROJECT": "PROJECT_KEY"
       }
     }
   }
 }
 ```
 
-### Environment Variables
+### 📋 Environment Variables Reference
 
-- `BITBUCKET_URL` (required): 
-  - **Bitbucket Cloud**: `https://bitbucket.org`
-  - **Bitbucket Server**: Base URL of your Bitbucket Server instance (e.g., `https://your-bitbucket-server.com`)
-- Authentication (one of the following is required):
-  - `BITBUCKET_TOKEN`: 
-    - **Bitbucket Cloud**: App password or OAuth access token
-    - **Bitbucket Server**: Personal access token
-  - `BITBUCKET_USERNAME` and `BITBUCKET_PASSWORD`: Basic authentication credentials (works for both)
-- `BITBUCKET_DEFAULT_PROJECT` (optional): 
-  - **Bitbucket Cloud**: Default workspace name to use when not specified in tool calls
-  - **Bitbucket Server**: Default project key to use when not specified in tool calls
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `BITBUCKET_URL` | ✅ **Yes** | **Cloud:** `https://bitbucket.org`<br/>**Server:** Your server URL (e.g., `https://bitbucket.company.com`) |
+| `BITBUCKET_USERNAME` | **Cloud:** ✅ **Yes**<br/>**Server:** Optional | Your Bitbucket username |
+| `BITBUCKET_TOKEN` | **Cloud:** ✅ **Yes** (if no password)<br/>**Server:** ✅ **Yes** (if no username/password) | **Cloud:** App Password<br/>**Server:** Personal Access Token |
+| `BITBUCKET_PASSWORD` | Optional | **Cloud:** Account password (less secure)<br/>**Server:** Account password |
+| `BITBUCKET_DEFAULT_PROJECT` | Optional | **Cloud:** Default workspace name<br/>**Server:** Default project key |
 
-### Auto-Detection
+### 🔄 Auto-Detection
 
-The server automatically detects your Bitbucket instance type:
-- URLs containing `bitbucket.org` or `api.bitbucket.org` → **Bitbucket Cloud**
-- All other URLs → **Bitbucket Server**
+The server automatically detects your Bitbucket type:
+- **URLs containing `bitbucket.org`** → Bitbucket Cloud (API v2.0)
+- **All other URLs** → Bitbucket Server (API v1.0)
 
-This means you can use the same server for both types of Bitbucket instances without any configuration changes!
+### ✅ Validation & Troubleshooting
 
-**Note**: With the flexible project/workspace support, you can now:
-- Set `BITBUCKET_DEFAULT_PROJECT` to work with a specific project/workspace by default
-- Use `list_projects` to discover available projects/workspaces
-- Use `list_repositories` to browse repositories across projects/workspaces
-- Override the default by specifying the `project`/`workspace` parameter in any tool call
+**Bitbucket Cloud Requirements:**
+- Must have `BITBUCKET_USERNAME`
+- Must have either `BITBUCKET_TOKEN` (App Password) or `BITBUCKET_PASSWORD`
+- App Password must have correct scopes
+
+**Bitbucket Server Requirements:**  
+- Must have either `BITBUCKET_TOKEN` (Personal Access Token) OR `BITBUCKET_USERNAME` + `BITBUCKET_PASSWORD`
+- Token/credentials must have repository and project permissions
+
+**Common Issues:**
+1. **401 Unauthorized**: Check your credentials and permissions
+2. **Wrong workspace/project**: Verify `BITBUCKET_DEFAULT_PROJECT` matches your workspace/project name
+3. **App Password scopes**: Ensure all required permissions are selected
+4. **Server URL**: Verify the URL is correct and accessible
+
+### 🧪 Testing Your Configuration
+
+Once configured, you should see this in the logs:
+```json
+{
+  "level": "info",
+  "message": "Initialized for Bitbucket Cloud",
+  "authMethod": "Basic Auth (App Password)",
+  "hasAuth": true,
+  "username": "your-username",
+  "defaultProject": "your-workspace"
+}
+```
+
+### 🚀 Getting Started Examples
+
+#### Bitbucket Cloud with App Password
+```bash
+# 1. Create App Password at https://bitbucket.org/account/settings/app-passwords/
+# 2. Set environment variables:
+export BITBUCKET_URL="https://bitbucket.org"
+export BITBUCKET_USERNAME="john-doe"
+export BITBUCKET_TOKEN="ATBBKf9..." # Your App Password
+export BITBUCKET_DEFAULT_PROJECT="my-workspace"
+
+# 3. Start the server
+node build/index.js
+```
+
+#### Bitbucket Server with Personal Access Token
+```bash
+# 1. Create Personal Access Token in your server
+# 2. Set environment variables:
+export BITBUCKET_URL="https://bitbucket.company.com"
+export BITBUCKET_TOKEN="your-pat-token"
+export BITBUCKET_DEFAULT_PROJECT="PROJ"
+
+# 3. Start the server  
+node build/index.js
+```
+
+### 🔄 Platform Differences
+
+While the MCP server provides the same tools for both platforms, there are some differences in the underlying APIs:
+
+| Feature | Bitbucket Cloud | Bitbucket Server |
+|---------|-----------------|------------------|
+| **Authentication** | Username + App Password (Basic Auth) | Personal Access Token (Bearer) or Basic Auth |
+| **Projects/Workspaces** | Workspaces (user/team namespaces) | Projects (administrative containers) |
+| **API Version** | REST API 2.0 | REST API 1.0 |
+| **Base URL** | `https://api.bitbucket.org/2.0` | `https://your-server.com/rest/api/1.0` |
+| **Repository URLs** | `/repositories/{workspace}/{repo_slug}` | `/projects/{project}/repos/{repo_slug}` |
+| **Pull Request Reviews** | Participants and reviewers data | Activity stream with review events |
+| **Merge Strategies** | `merge_commit`, `squash`, `fast_forward` | `merge-commit`, `squash`, `fast-forward` |
+
+**Note:** The MCP server automatically handles these differences, so you can use the same commands regardless of platform!
 
 ## Logging
 

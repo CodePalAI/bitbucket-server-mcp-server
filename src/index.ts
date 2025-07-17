@@ -108,28 +108,55 @@ class BitbucketServer {
             throw new Error('BITBUCKET_URL is required');
         }
 
-        if (!this.config.token && !(this.config.username && this.config.password)) {
-            throw new Error('Either BITBUCKET_TOKEN or BITBUCKET_USERNAME/PASSWORD is required');
+        // Enhanced validation for different authentication methods
+        if (this.config.isCloud) {
+            // Bitbucket Cloud: Requires username + app password OR username + password
+            if (!this.config.username) {
+                throw new Error('BITBUCKET_USERNAME is required for Bitbucket Cloud');
+            }
+            if (!this.config.token && !this.config.password) {
+                throw new Error('Either BITBUCKET_TOKEN (App Password) or BITBUCKET_PASSWORD is required for Bitbucket Cloud');
+            }
+            if (this.config.token && this.config.password) {
+                logger.warn('Both BITBUCKET_TOKEN and BITBUCKET_PASSWORD provided. Using App Password (BITBUCKET_TOKEN)');
+            }
+        } else {
+            // Bitbucket Server: Supports multiple auth methods
+            if (!this.config.token && !(this.config.username && this.config.password)) {
+                throw new Error('Either BITBUCKET_TOKEN (Personal Access Token) or BITBUCKET_USERNAME/PASSWORD is required for Bitbucket Server');
+            }
         }
 
         // Configuration de l'instance Axios based on Bitbucket type
         const apiPath = this.config.isCloud ? '/2.0' : '/rest/api/1.0';
         const baseURL = this.config.isCloud ? 'https://api.bitbucket.org/2.0' : `${this.config.baseUrl}${apiPath}`;
         
+        // Setup authentication based on platform and available credentials
+        let authConfig: { headers?: any; auth?: any } = { headers: {}, auth: undefined };
+        
+        if (this.config.isCloud) {
+            // Bitbucket Cloud: Always use Basic Auth
+            if (this.config.token) {
+                // App Password authentication (recommended)
+                authConfig.auth = { username: this.config.username!, password: this.config.token };
+            } else if (this.config.password) {
+                // Username/Password authentication (less secure)
+                authConfig.auth = { username: this.config.username!, password: this.config.password };
+            }
+        } else {
+            // Bitbucket Server: Support both Bearer tokens and Basic Auth
+            if (this.config.token) {
+                // Personal Access Token (recommended)
+                authConfig.headers = { Authorization: `Bearer ${this.config.token}` };
+            } else if (this.config.username && this.config.password) {
+                // Basic authentication
+                authConfig.auth = { username: this.config.username, password: this.config.password };
+            }
+        }
+        
         this.api = axios.create({
             baseURL,
-            headers: this.config.isCloud
-                ? {} // For Cloud, we'll use Basic Auth, not Bearer
-                : (this.config.token ? {Authorization: `Bearer ${this.config.token}`} : {}),
-            auth: this.config.isCloud
-                ? (this.config.token 
-                    ? { username: process.env.BITBUCKET_USERNAME || 'x-token-auth', password: this.config.token }
-                    : (this.config.username && this.config.password 
-                        ? { username: this.config.username, password: this.config.password }
-                        : undefined))
-                : (this.config.username && this.config.password
-                    ? {username: this.config.username, password: this.config.password}
-                    : undefined),
+            ...authConfig
         });
 
         logger.info(`Initialized for ${this.config.isCloud ? 'Bitbucket Cloud' : 'Bitbucket Server'}`, {
@@ -137,8 +164,10 @@ class BitbucketServer {
             apiPath,
             authMethod: this.config.isCloud 
                 ? (this.config.token ? 'Basic Auth (App Password)' : 'Basic Auth (Username/Password)')
-                : (this.config.token ? 'Bearer Token' : 'Basic Auth'),
-            hasAuth: !!(this.config.token || (this.config.username && this.config.password))
+                : (this.config.token ? 'Bearer Token (Personal Access Token)' : 'Basic Auth (Username/Password)'),
+            hasAuth: !!(this.config.token || (this.config.username && this.config.password)),
+            username: this.config.username || 'not provided',
+            defaultProject: this.config.defaultProject || 'not set'
         });
 
         this.setupToolHandlers();
@@ -511,8 +540,19 @@ class BitbucketServer {
                     // Provide specific guidance for 401 errors
                     if (error.response?.status === 401) {
                         const authGuidance = this.config.isCloud
-                            ? 'For Bitbucket Cloud, ensure you have:\n1. Set BITBUCKET_USERNAME to your Bitbucket username\n2. Set BITBUCKET_TOKEN to your App Password (not OAuth token)\n3. App Password has required scopes: repositories, pullrequests, account'
-                            : 'For Bitbucket Server, ensure your token or credentials have sufficient permissions';
+                            ? `For Bitbucket Cloud, ensure you have:
+1. Set BITBUCKET_USERNAME to your Bitbucket username
+2. Set BITBUCKET_TOKEN to your App Password (create at: https://bitbucket.org/account/settings/app-passwords/)
+3. App Password has required scopes: Repositories (Read/Write), Pull requests (Read/Write), Account (Read)
+4. OR use BITBUCKET_USERNAME + BITBUCKET_PASSWORD (less secure)
+
+Current config: username=${this.config.username || 'NOT SET'}, hasToken=${!!this.config.token}, hasPassword=${!!this.config.password}`
+                            : `For Bitbucket Server, ensure you have:
+1. Set BITBUCKET_TOKEN to your Personal Access Token (recommended)
+2. OR set BITBUCKET_USERNAME + BITBUCKET_PASSWORD for basic auth
+3. Token/credentials have sufficient permissions for repositories and pull requests
+
+Current config: hasToken=${!!this.config.token}, username=${this.config.username || 'NOT SET'}, hasPassword=${!!this.config.password}`;
                         
                         throw new McpError(
                             ErrorCode.InternalError,
