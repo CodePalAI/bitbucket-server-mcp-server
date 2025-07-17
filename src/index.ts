@@ -114,19 +114,31 @@ class BitbucketServer {
 
         // Configuration de l'instance Axios based on Bitbucket type
         const apiPath = this.config.isCloud ? '/2.0' : '/rest/api/1.0';
+        const baseURL = this.config.isCloud ? 'https://api.bitbucket.org/2.0' : `${this.config.baseUrl}${apiPath}`;
+        
         this.api = axios.create({
-            baseURL: `${this.config.baseUrl}${apiPath}`,
-            headers: this.config.token 
-                ? {Authorization: `Bearer ${this.config.token}`}
-                : {},
-            auth: this.config.username && this.config.password
-                ? {username: this.config.username, password: this.config.password}
-                : undefined,
+            baseURL,
+            headers: this.config.isCloud
+                ? {} // For Cloud, we'll use Basic Auth, not Bearer
+                : (this.config.token ? {Authorization: `Bearer ${this.config.token}`} : {}),
+            auth: this.config.isCloud
+                ? (this.config.token 
+                    ? { username: process.env.BITBUCKET_USERNAME || 'x-token-auth', password: this.config.token }
+                    : (this.config.username && this.config.password 
+                        ? { username: this.config.username, password: this.config.password }
+                        : undefined))
+                : (this.config.username && this.config.password
+                    ? {username: this.config.username, password: this.config.password}
+                    : undefined),
         });
 
         logger.info(`Initialized for ${this.config.isCloud ? 'Bitbucket Cloud' : 'Bitbucket Server'}`, {
             baseUrl: this.config.baseUrl,
-            apiPath
+            apiPath,
+            authMethod: this.config.isCloud 
+                ? (this.config.token ? 'Basic Auth (App Password)' : 'Basic Auth (Username/Password)')
+                : (this.config.token ? 'Bearer Token' : 'Basic Auth'),
+            hasAuth: !!(this.config.token || (this.config.username && this.config.password))
         });
 
         this.setupToolHandlers();
@@ -495,6 +507,19 @@ class BitbucketServer {
                     const errorMessage = this.config.isCloud 
                         ? error.response?.data?.error?.message || error.response?.data?.message || error.message
                         : error.response?.data.message || error.message;
+                    
+                    // Provide specific guidance for 401 errors
+                    if (error.response?.status === 401) {
+                        const authGuidance = this.config.isCloud
+                            ? 'For Bitbucket Cloud, ensure you have:\n1. Set BITBUCKET_USERNAME to your Bitbucket username\n2. Set BITBUCKET_TOKEN to your App Password (not OAuth token)\n3. App Password has required scopes: repositories, pullrequests, account'
+                            : 'For Bitbucket Server, ensure your token or credentials have sufficient permissions';
+                        
+                        throw new McpError(
+                            ErrorCode.InternalError,
+                            `Authentication failed (401): ${errorMessage}\n\n${authGuidance}`
+                        );
+                    }
+                    
                     throw new McpError(
                         ErrorCode.InternalError,
                         `Bitbucket API error: ${errorMessage}`
