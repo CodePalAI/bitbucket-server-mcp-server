@@ -76,6 +76,58 @@ interface ListRepositoriesOptions extends ListOptions {
     workspace?: string;
 }
 
+interface BranchParams extends RepositoryParams {
+    branchName?: string;
+}
+
+interface CommitParams extends RepositoryParams {
+    commitId?: string;
+    branch?: string;
+}
+
+interface IssueParams extends RepositoryParams {
+    issueId?: number;
+}
+
+interface FileParams extends RepositoryParams {
+    path?: string;
+    branch?: string;
+    commitId?: string;
+}
+
+interface TagParams extends RepositoryParams {
+    tagName?: string;
+}
+
+interface WebhookParams extends RepositoryParams {
+    webhookId?: string;
+}
+
+interface CreateRepositoryInput {
+    name: string;
+    description?: string;
+    isPrivate?: boolean;
+    forkPolicy?: string;
+    language?: string;
+    hasIssues?: boolean;
+    hasWiki?: boolean;
+}
+
+interface CreateIssueInput extends RepositoryParams {
+    title: string;
+    content?: string;
+    kind?: string;
+    priority?: string;
+    assignee?: string;
+}
+
+interface CreateWebhookInput extends RepositoryParams {
+    url: string;
+    description?: string;
+    events: string[];
+    active?: boolean;
+}
+
 class BitbucketServer {
     private readonly server: Server;
     private readonly api: AxiosInstance;
@@ -398,6 +450,364 @@ class BitbucketServer {
                         },
                         required: ['repository', 'prId']
                     }
+                },
+                // Branch Operations
+                {
+                    name: 'list_branches',
+                    description: 'List all branches in a repository. Use this to discover available branches, understand branch structure, or find specific branches for checkout, merging, or other Git operations. Returns branch names, commit IDs, and branch metadata.',
+                    inputSchema: {
+                        type: 'object',
+                        properties: {
+                            [this.config.isCloud ? 'workspace' : 'project']: {
+                                type: 'string',
+                                description: this.config.isCloud
+                                    ? 'Bitbucket workspace name. If omitted, uses BITBUCKET_DEFAULT_PROJECT environment variable.'
+                                    : 'Bitbucket project key. If omitted, uses BITBUCKET_DEFAULT_PROJECT environment variable.'
+                            },
+                            repository: {type: 'string', description: 'Repository slug to list branches from.'},
+                            limit: {type: 'number', description: 'Number of branches to return (default: 25, max: 1000)'},
+                            start: {type: 'number', description: 'Start index for pagination (default: 0)'}
+                        },
+                        required: ['repository']
+                    }
+                },
+                {
+                    name: 'create_branch',
+                    description: 'Create a new branch in a repository from a specified starting point. Use this to create feature branches, release branches, or any new branch for development. Supports creating from any existing branch, tag, or commit.',
+                    inputSchema: {
+                        type: 'object',
+                        properties: {
+                            [this.config.isCloud ? 'workspace' : 'project']: {
+                                type: 'string',
+                                description: this.config.isCloud
+                                    ? 'Bitbucket workspace name. If omitted, uses BITBUCKET_DEFAULT_PROJECT environment variable.'
+                                    : 'Bitbucket project key. If omitted, uses BITBUCKET_DEFAULT_PROJECT environment variable.'
+                            },
+                            repository: {type: 'string', description: 'Repository slug where the branch will be created.'},
+                            branchName: {type: 'string', description: 'Name for the new branch (e.g., "feature/new-feature", "release/v1.2").'},
+                            startPoint: {type: 'string', description: 'Starting point for the new branch - can be branch name, tag name, or commit hash (default: "main" or default branch).'}
+                        },
+                        required: ['repository', 'branchName']
+                    }
+                },
+                {
+                    name: 'delete_branch',
+                    description: 'Delete a branch from a repository. Use this to clean up feature branches after merging, remove obsolete branches, or maintain repository hygiene. Cannot delete the default branch or protected branches.',
+                    inputSchema: {
+                        type: 'object',
+                        properties: {
+                            [this.config.isCloud ? 'workspace' : 'project']: {
+                                type: 'string',
+                                description: this.config.isCloud
+                                    ? 'Bitbucket workspace name. If omitted, uses BITBUCKET_DEFAULT_PROJECT environment variable.'
+                                    : 'Bitbucket project key. If omitted, uses BITBUCKET_DEFAULT_PROJECT environment variable.'
+                            },
+                            repository: {type: 'string', description: 'Repository slug containing the branch to delete.'},
+                            branchName: {type: 'string', description: 'Name of the branch to delete.'}
+                        },
+                        required: ['repository', 'branchName']
+                    }
+                },
+                // Commit Operations
+                {
+                    name: 'list_commits',
+                    description: 'List commits in a repository with optional filtering by branch, author, or time range. Use this to review commit history, find specific changes, understand development timeline, or analyze contributor activity.',
+                    inputSchema: {
+                        type: 'object',
+                        properties: {
+                            [this.config.isCloud ? 'workspace' : 'project']: {
+                                type: 'string',
+                                description: this.config.isCloud
+                                    ? 'Bitbucket workspace name. If omitted, uses BITBUCKET_DEFAULT_PROJECT environment variable.'
+                                    : 'Bitbucket project key. If omitted, uses BITBUCKET_DEFAULT_PROJECT environment variable.'
+                            },
+                            repository: {type: 'string', description: 'Repository slug to list commits from.'},
+                            branch: {type: 'string', description: 'Branch name to list commits from (default: default branch).'},
+                            limit: {type: 'number', description: 'Number of commits to return (default: 25, max: 100)'},
+                            start: {type: 'number', description: 'Start index for pagination (default: 0)'}
+                        },
+                        required: ['repository']
+                    }
+                },
+                {
+                    name: 'get_commit',
+                    description: 'Get detailed information about a specific commit including changes, author, message, and affected files. Use this to understand what changes were made in a commit, review code changes, or analyze specific modifications.',
+                    inputSchema: {
+                        type: 'object',
+                        properties: {
+                            [this.config.isCloud ? 'workspace' : 'project']: {
+                                type: 'string',
+                                description: this.config.isCloud
+                                    ? 'Bitbucket workspace name. If omitted, uses BITBUCKET_DEFAULT_PROJECT environment variable.'
+                                    : 'Bitbucket project key. If omitted, uses BITBUCKET_DEFAULT_PROJECT environment variable.'
+                            },
+                            repository: {type: 'string', description: 'Repository slug containing the commit.'},
+                            commitId: {type: 'string', description: 'Commit hash or ID to retrieve details for.'}
+                        },
+                        required: ['repository', 'commitId']
+                    }
+                },
+                // Issue Operations
+                {
+                    name: 'list_issues',
+                    description: 'List issues in a repository with optional filtering by status, assignee, or labels. Use this to track bugs, feature requests, and tasks, understand project health, or manage development workflow.',
+                    inputSchema: {
+                        type: 'object',
+                        properties: {
+                            [this.config.isCloud ? 'workspace' : 'project']: {
+                                type: 'string',
+                                description: this.config.isCloud
+                                    ? 'Bitbucket workspace name. If omitted, uses BITBUCKET_DEFAULT_PROJECT environment variable.'
+                                    : 'Bitbucket project key. If omitted, uses BITBUCKET_DEFAULT_PROJECT environment variable.'
+                            },
+                            repository: {type: 'string', description: 'Repository slug to list issues from.'},
+                            state: {type: 'string', description: 'Filter by issue state: "new", "open", "resolved", "closed", "invalid", "duplicate", "wontfix".'},
+                            limit: {type: 'number', description: 'Number of issues to return (default: 25, max: 100)'},
+                            start: {type: 'number', description: 'Start index for pagination (default: 0)'}
+                        },
+                        required: ['repository']
+                    }
+                },
+                {
+                    name: 'create_issue',
+                    description: 'Create a new issue in a repository to track bugs, feature requests, or tasks. Use this to report problems, request enhancements, or create actionable items for the development team.',
+                    inputSchema: {
+                        type: 'object',
+                        properties: {
+                            [this.config.isCloud ? 'workspace' : 'project']: {
+                                type: 'string',
+                                description: this.config.isCloud
+                                    ? 'Bitbucket workspace name. If omitted, uses BITBUCKET_DEFAULT_PROJECT environment variable.'
+                                    : 'Bitbucket project key. If omitted, uses BITBUCKET_DEFAULT_PROJECT environment variable.'
+                            },
+                            repository: {type: 'string', description: 'Repository slug where the issue will be created.'},
+                            title: {type: 'string', description: 'Clear, descriptive title for the issue.'},
+                            content: {type: 'string', description: 'Detailed description of the issue, bug report, or feature request. Supports Markdown formatting.'},
+                            kind: {type: 'string', description: 'Type of issue: "bug", "enhancement", "proposal", "task".'},
+                            priority: {type: 'string', description: 'Issue priority: "trivial", "minor", "major", "critical", "blocker".'},
+                            assignee: {type: 'string', description: 'Username to assign the issue to.'}
+                        },
+                        required: ['repository', 'title']
+                    }
+                },
+                {
+                    name: 'get_issue',
+                    description: 'Get detailed information about a specific issue including description, comments, status, and history. Use this to understand issue details, track progress, or review discussions.',
+                    inputSchema: {
+                        type: 'object',
+                        properties: {
+                            [this.config.isCloud ? 'workspace' : 'project']: {
+                                type: 'string',
+                                description: this.config.isCloud
+                                    ? 'Bitbucket workspace name. If omitted, uses BITBUCKET_DEFAULT_PROJECT environment variable.'
+                                    : 'Bitbucket project key. If omitted, uses BITBUCKET_DEFAULT_PROJECT environment variable.'
+                            },
+                            repository: {type: 'string', description: 'Repository slug containing the issue.'},
+                            issueId: {type: 'number', description: 'Issue ID number to retrieve details for.'}
+                        },
+                        required: ['repository', 'issueId']
+                    }
+                },
+                // File Operations
+                {
+                    name: 'get_file_content',
+                    description: 'Retrieve the content of a specific file from a repository at a given branch or commit. Use this to read configuration files, source code, documentation, or any repository file for analysis or processing.',
+                    inputSchema: {
+                        type: 'object',
+                        properties: {
+                            [this.config.isCloud ? 'workspace' : 'project']: {
+                                type: 'string',
+                                description: this.config.isCloud
+                                    ? 'Bitbucket workspace name. If omitted, uses BITBUCKET_DEFAULT_PROJECT environment variable.'
+                                    : 'Bitbucket project key. If omitted, uses BITBUCKET_DEFAULT_PROJECT environment variable.'
+                            },
+                            repository: {type: 'string', description: 'Repository slug containing the file.'},
+                            path: {type: 'string', description: 'File path relative to repository root (e.g., "src/main.js", "README.md").'},
+                            branch: {type: 'string', description: 'Branch name to read file from (default: default branch).'},
+                            commitId: {type: 'string', description: 'Specific commit hash to read file from (takes precedence over branch).'}
+                        },
+                        required: ['repository', 'path']
+                    }
+                },
+                {
+                    name: 'list_directory',
+                    description: 'List contents of a directory in a repository at a given branch or commit. Use this to explore repository structure, find files, or understand project organization.',
+                    inputSchema: {
+                        type: 'object',
+                        properties: {
+                            [this.config.isCloud ? 'workspace' : 'project']: {
+                                type: 'string',
+                                description: this.config.isCloud
+                                    ? 'Bitbucket workspace name. If omitted, uses BITBUCKET_DEFAULT_PROJECT environment variable.'
+                                    : 'Bitbucket project key. If omitted, uses BITBUCKET_DEFAULT_PROJECT environment variable.'
+                            },
+                            repository: {type: 'string', description: 'Repository slug to explore.'},
+                            path: {type: 'string', description: 'Directory path relative to repository root (default: root directory).'},
+                            branch: {type: 'string', description: 'Branch name to list directory from (default: default branch).'},
+                            commitId: {type: 'string', description: 'Specific commit hash to list directory from (takes precedence over branch).'}
+                        },
+                        required: ['repository']
+                    }
+                },
+                // Tag Operations
+                {
+                    name: 'list_tags',
+                    description: 'List all tags in a repository. Use this to discover releases, version history, or important milestones in the project. Returns tag names, associated commits, and creation dates.',
+                    inputSchema: {
+                        type: 'object',
+                        properties: {
+                            [this.config.isCloud ? 'workspace' : 'project']: {
+                                type: 'string',
+                                description: this.config.isCloud
+                                    ? 'Bitbucket workspace name. If omitted, uses BITBUCKET_DEFAULT_PROJECT environment variable.'
+                                    : 'Bitbucket project key. If omitted, uses BITBUCKET_DEFAULT_PROJECT environment variable.'
+                            },
+                            repository: {type: 'string', description: 'Repository slug to list tags from.'},
+                            limit: {type: 'number', description: 'Number of tags to return (default: 25, max: 100)'},
+                            start: {type: 'number', description: 'Start index for pagination (default: 0)'}
+                        },
+                        required: ['repository']
+                    }
+                },
+                {
+                    name: 'create_tag',
+                    description: 'Create a new tag in a repository to mark a specific commit as a release or milestone. Use this for version releases, important milestones, or to bookmark significant commits.',
+                    inputSchema: {
+                        type: 'object',
+                        properties: {
+                            [this.config.isCloud ? 'workspace' : 'project']: {
+                                type: 'string',
+                                description: this.config.isCloud
+                                    ? 'Bitbucket workspace name. If omitted, uses BITBUCKET_DEFAULT_PROJECT environment variable.'
+                                    : 'Bitbucket project key. If omitted, uses BITBUCKET_DEFAULT_PROJECT environment variable.'
+                            },
+                            repository: {type: 'string', description: 'Repository slug where the tag will be created.'},
+                            tagName: {type: 'string', description: 'Name for the new tag (e.g., "v1.0.0", "release-2024.1").'},
+                            commitId: {type: 'string', description: 'Commit hash to tag (default: latest commit on default branch).'},
+                            message: {type: 'string', description: 'Optional tag message or description.'}
+                        },
+                        required: ['repository', 'tagName']
+                    }
+                },
+                // Repository Management
+                {
+                    name: 'create_repository',
+                    description: 'Create a new repository in a project or workspace. Use this to set up new projects, initialize codebases, or create repositories for new development work.',
+                    inputSchema: {
+                        type: 'object',
+                        properties: {
+                            [this.config.isCloud ? 'workspace' : 'project']: {
+                                type: 'string',
+                                description: this.config.isCloud
+                                    ? 'Bitbucket workspace name. If omitted, uses BITBUCKET_DEFAULT_PROJECT environment variable.'
+                                    : 'Bitbucket project key. If omitted, uses BITBUCKET_DEFAULT_PROJECT environment variable.'
+                            },
+                            name: {type: 'string', description: 'Repository name (will be used as the repository slug).'},
+                            description: {type: 'string', description: 'Repository description explaining the project purpose.'},
+                            isPrivate: {type: 'boolean', description: 'Whether the repository should be private (default: true).'},
+                            forkPolicy: {type: 'string', description: 'Fork policy: "allow_forks", "no_public_forks", "no_forks".'},
+                            language: {type: 'string', description: 'Primary programming language for the repository.'},
+                            hasIssues: {type: 'boolean', description: 'Enable issue tracker (default: true).'},
+                            hasWiki: {type: 'boolean', description: 'Enable wiki (default: false).'}
+                        },
+                        required: ['name']
+                    }
+                },
+                {
+                    name: 'fork_repository',
+                    description: 'Create a fork of an existing repository. Use this to contribute to open source projects, create personal copies for experimentation, or establish parallel development streams.',
+                    inputSchema: {
+                        type: 'object',
+                        properties: {
+                            [this.config.isCloud ? 'workspace' : 'project']: {
+                                type: 'string',
+                                description: this.config.isCloud
+                                    ? 'Source workspace name. If omitted, uses BITBUCKET_DEFAULT_PROJECT environment variable.'
+                                    : 'Source project key. If omitted, uses BITBUCKET_DEFAULT_PROJECT environment variable.'
+                            },
+                            repository: {type: 'string', description: 'Repository slug to fork.'},
+                            [this.config.isCloud ? 'forkWorkspace' : 'forkProject']: {
+                                type: 'string',
+                                description: this.config.isCloud
+                                    ? 'Target workspace for the fork (default: current user workspace).'
+                                    : 'Target project for the fork (default: personal project).'
+                            },
+                            name: {type: 'string', description: 'Name for the forked repository (default: same as source).'}
+                        },
+                        required: ['repository']
+                    }
+                },
+                // User Operations
+                {
+                    name: 'get_user',
+                    description: 'Get detailed information about a Bitbucket user including profile details, account status, and public information. Use this to understand user details, verify accounts, or gather contributor information.',
+                    inputSchema: {
+                        type: 'object',
+                        properties: {
+                            username: {type: 'string', description: 'Bitbucket username or UUID to get details for (leave empty for current authenticated user).'}
+                        }
+                    }
+                },
+                // Webhook Operations
+                {
+                    name: 'list_webhooks',
+                    description: 'List all webhooks configured for a repository. Use this to audit integrations, understand automation setup, or manage webhook configurations.',
+                    inputSchema: {
+                        type: 'object',
+                        properties: {
+                            [this.config.isCloud ? 'workspace' : 'project']: {
+                                type: 'string',
+                                description: this.config.isCloud
+                                    ? 'Bitbucket workspace name. If omitted, uses BITBUCKET_DEFAULT_PROJECT environment variable.'
+                                    : 'Bitbucket project key. If omitted, uses BITBUCKET_DEFAULT_PROJECT environment variable.'
+                            },
+                            repository: {type: 'string', description: 'Repository slug to list webhooks from.'}
+                        },
+                        required: ['repository']
+                    }
+                },
+                {
+                    name: 'create_webhook',
+                    description: 'Create a new webhook for a repository to receive notifications about events like pushes, pull requests, or issue changes. Use this to integrate with external systems, trigger CI/CD pipelines, or automate workflows.',
+                    inputSchema: {
+                        type: 'object',
+                        properties: {
+                            [this.config.isCloud ? 'workspace' : 'project']: {
+                                type: 'string',
+                                description: this.config.isCloud
+                                    ? 'Bitbucket workspace name. If omitted, uses BITBUCKET_DEFAULT_PROJECT environment variable.'
+                                    : 'Bitbucket project key. If omitted, uses BITBUCKET_DEFAULT_PROJECT environment variable.'
+                            },
+                            repository: {type: 'string', description: 'Repository slug where the webhook will be created.'},
+                            url: {type: 'string', description: 'URL endpoint that will receive webhook notifications.'},
+                            description: {type: 'string', description: 'Description of the webhook purpose.'},
+                            events: {
+                                type: 'array',
+                                items: {type: 'string'},
+                                description: 'List of events to trigger webhook: ["repo:push", "pullrequest:created", "pullrequest:updated", "pullrequest:approved", "pullrequest:merged", "issue:created", "issue:updated"].'
+                            },
+                            active: {type: 'boolean', description: 'Whether the webhook is active (default: true).'}
+                        },
+                        required: ['repository', 'url', 'events']
+                    }
+                },
+                {
+                    name: 'delete_webhook',
+                    description: 'Delete a webhook from a repository. Use this to remove obsolete integrations, clean up webhook configurations, or disable unwanted notifications.',
+                    inputSchema: {
+                        type: 'object',
+                        properties: {
+                            [this.config.isCloud ? 'workspace' : 'project']: {
+                                type: 'string',
+                                description: this.config.isCloud
+                                    ? 'Bitbucket workspace name. If omitted, uses BITBUCKET_DEFAULT_PROJECT environment variable.'
+                                    : 'Bitbucket project key. If omitted, uses BITBUCKET_DEFAULT_PROJECT environment variable.'
+                            },
+                            repository: {type: 'string', description: 'Repository slug containing the webhook to delete.'},
+                            webhookId: {type: 'string', description: 'Webhook ID or UUID to delete.'}
+                        },
+                        required: ['repository', 'webhookId']
+                    }
                 }
             ]
         }));
@@ -513,6 +923,217 @@ class BitbucketServer {
                             prId: args.prId as number
                         };
                         return await this.getReviews(reviewsPrParams);
+                    }
+
+                    // Branch Operations
+                    case 'list_branches': {
+                        const key = this.config.isCloud ? 'workspace' : 'project';
+                        const branchParams: BranchParams = {
+                            [key]: getProjectOrWorkspace(args[key] as string),
+                            repository: args.repository as string
+                        };
+                        return await this.listBranches(branchParams, {
+                            limit: args.limit as number,
+                            start: args.start as number
+                        });
+                    }
+
+                    case 'create_branch': {
+                        const key = this.config.isCloud ? 'workspace' : 'project';
+                        const branchParams: BranchParams = {
+                            [key]: getProjectOrWorkspace(args[key] as string),
+                            repository: args.repository as string,
+                            branchName: args.branchName as string
+                        };
+                        return await this.createBranch(branchParams, args.startPoint as string);
+                    }
+
+                    case 'delete_branch': {
+                        const key = this.config.isCloud ? 'workspace' : 'project';
+                        const branchParams: BranchParams = {
+                            [key]: getProjectOrWorkspace(args[key] as string),
+                            repository: args.repository as string,
+                            branchName: args.branchName as string
+                        };
+                        return await this.deleteBranch(branchParams);
+                    }
+
+                    // Commit Operations
+                    case 'list_commits': {
+                        const key = this.config.isCloud ? 'workspace' : 'project';
+                        const commitParams: CommitParams = {
+                            [key]: getProjectOrWorkspace(args[key] as string),
+                            repository: args.repository as string,
+                            branch: args.branch as string
+                        };
+                        return await this.listCommits(commitParams, {
+                            limit: args.limit as number,
+                            start: args.start as number
+                        });
+                    }
+
+                    case 'get_commit': {
+                        const key = this.config.isCloud ? 'workspace' : 'project';
+                        const commitParams: CommitParams = {
+                            [key]: getProjectOrWorkspace(args[key] as string),
+                            repository: args.repository as string,
+                            commitId: args.commitId as string
+                        };
+                        return await this.getCommit(commitParams);
+                    }
+
+                    // Issue Operations
+                    case 'list_issues': {
+                        const key = this.config.isCloud ? 'workspace' : 'project';
+                        const issueParams: IssueParams = {
+                            [key]: getProjectOrWorkspace(args[key] as string),
+                            repository: args.repository as string
+                        };
+                        return await this.listIssues(issueParams, {
+                            state: args.state as string,
+                            limit: args.limit as number,
+                            start: args.start as number
+                        });
+                    }
+
+                    case 'create_issue': {
+                        const key = this.config.isCloud ? 'workspace' : 'project';
+                        const createIssueInput: CreateIssueInput = {
+                            [key]: getProjectOrWorkspace(args[key] as string),
+                            repository: args.repository as string,
+                            title: args.title as string,
+                            content: args.content as string,
+                            kind: args.kind as string,
+                            priority: args.priority as string,
+                            assignee: args.assignee as string
+                        };
+                        return await this.createIssue(createIssueInput);
+                    }
+
+                    case 'get_issue': {
+                        const key = this.config.isCloud ? 'workspace' : 'project';
+                        const issueParams: IssueParams = {
+                            [key]: getProjectOrWorkspace(args[key] as string),
+                            repository: args.repository as string,
+                            issueId: args.issueId as number
+                        };
+                        return await this.getIssue(issueParams);
+                    }
+
+                    // File Operations
+                    case 'get_file_content': {
+                        const key = this.config.isCloud ? 'workspace' : 'project';
+                        const fileParams: FileParams = {
+                            [key]: getProjectOrWorkspace(args[key] as string),
+                            repository: args.repository as string,
+                            path: args.path as string,
+                            branch: args.branch as string,
+                            commitId: args.commitId as string
+                        };
+                        return await this.getFileContent(fileParams);
+                    }
+
+                    case 'list_directory': {
+                        const key = this.config.isCloud ? 'workspace' : 'project';
+                        const fileParams: FileParams = {
+                            [key]: getProjectOrWorkspace(args[key] as string),
+                            repository: args.repository as string,
+                            path: args.path as string,
+                            branch: args.branch as string,
+                            commitId: args.commitId as string
+                        };
+                        return await this.listDirectory(fileParams);
+                    }
+
+                    // Tag Operations
+                    case 'list_tags': {
+                        const key = this.config.isCloud ? 'workspace' : 'project';
+                        const tagParams: TagParams = {
+                            [key]: getProjectOrWorkspace(args[key] as string),
+                            repository: args.repository as string
+                        };
+                        return await this.listTags(tagParams, {
+                            limit: args.limit as number,
+                            start: args.start as number
+                        });
+                    }
+
+                    case 'create_tag': {
+                        const key = this.config.isCloud ? 'workspace' : 'project';
+                        const tagParams: TagParams = {
+                            [key]: getProjectOrWorkspace(args[key] as string),
+                            repository: args.repository as string,
+                            tagName: args.tagName as string
+                        };
+                        return await this.createTag(tagParams, {
+                            commitId: args.commitId as string,
+                            message: args.message as string
+                        });
+                    }
+
+                    // Repository Management
+                    case 'create_repository': {
+                        const key = this.config.isCloud ? 'workspace' : 'project';
+                        const createRepoInput: CreateRepositoryInput = {
+                            name: args.name as string,
+                            description: args.description as string,
+                            isPrivate: args.isPrivate as boolean,
+                            forkPolicy: args.forkPolicy as string,
+                            language: args.language as string,
+                            hasIssues: args.hasIssues as boolean,
+                            hasWiki: args.hasWiki as boolean
+                        };
+                        return await this.createRepository(getProjectOrWorkspace(args[key] as string), createRepoInput);
+                    }
+
+                    case 'fork_repository': {
+                        const key = this.config.isCloud ? 'workspace' : 'project';
+                        const forkKey = this.config.isCloud ? 'forkWorkspace' : 'forkProject';
+                        return await this.forkRepository({
+                            [key]: getProjectOrWorkspace(args[key] as string),
+                            repository: args.repository as string
+                        }, {
+                            [forkKey]: args[forkKey] as string,
+                            name: args.name as string
+                        });
+                    }
+
+                    // User Operations
+                    case 'get_user': {
+                        return await this.getUser(args.username as string);
+                    }
+
+                    // Webhook Operations
+                    case 'list_webhooks': {
+                        const key = this.config.isCloud ? 'workspace' : 'project';
+                        const webhookParams: WebhookParams = {
+                            [key]: getProjectOrWorkspace(args[key] as string),
+                            repository: args.repository as string
+                        };
+                        return await this.listWebhooks(webhookParams);
+                    }
+
+                    case 'create_webhook': {
+                        const key = this.config.isCloud ? 'workspace' : 'project';
+                        const createWebhookInput: CreateWebhookInput = {
+                            [key]: getProjectOrWorkspace(args[key] as string),
+                            repository: args.repository as string,
+                            url: args.url as string,
+                            description: args.description as string,
+                            events: args.events as string[],
+                            active: args.active as boolean
+                        };
+                        return await this.createWebhook(createWebhookInput);
+                    }
+
+                    case 'delete_webhook': {
+                        const key = this.config.isCloud ? 'workspace' : 'project';
+                        const webhookParams: WebhookParams = {
+                            [key]: getProjectOrWorkspace(args[key] as string),
+                            repository: args.repository as string,
+                            webhookId: args.webhookId as string
+                        };
+                        return await this.deleteWebhook(webhookParams);
                     }
 
                     default:
@@ -1097,6 +1718,718 @@ Current config: hasToken=${!!this.config.token}, username=${this.config.username
 
             return {
                 content: [{type: 'text', text: JSON.stringify(reviews, null, 2)}]
+            };
+        }
+    }
+
+    // Branch Operations
+    private async listBranches(params: BranchParams, options: ListOptions = {}) {
+        const {repository} = params;
+        const {limit = 25, start = 0} = options;
+
+        if (!repository) {
+            throw new McpError(ErrorCode.InvalidParams, 'Repository is required');
+        }
+
+        if (this.config.isCloud) {
+            const workspace = params.workspace || this.config.defaultProject;
+            if (!workspace) {
+                throw new McpError(ErrorCode.InvalidParams, 'Workspace is required for Bitbucket Cloud');
+            }
+
+            const response = await this.api.get(
+                `/repositories/${workspace}/${repository}/refs/branches`,
+                {params: {pagelen: limit, page: Math.floor(start / limit) + 1}}
+            );
+
+            return {
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
+            };
+        } else {
+            const project = params.project || this.config.defaultProject;
+            if (!project) {
+                throw new McpError(ErrorCode.InvalidParams, 'Project is required for Bitbucket Server');
+            }
+
+            const response = await this.api.get(
+                `/projects/${project}/repos/${repository}/branches`,
+                {params: {limit, start}}
+            );
+
+            return {
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
+            };
+        }
+    }
+
+    private async createBranch(params: BranchParams, startPoint?: string) {
+        const {repository, branchName} = params;
+
+        if (!repository || !branchName) {
+            throw new McpError(ErrorCode.InvalidParams, 'Repository and branchName are required');
+        }
+
+        if (this.config.isCloud) {
+            const workspace = params.workspace || this.config.defaultProject;
+            if (!workspace) {
+                throw new McpError(ErrorCode.InvalidParams, 'Workspace is required for Bitbucket Cloud');
+            }
+
+            const response = await this.api.post(
+                `/repositories/${workspace}/${repository}/refs/branches`,
+                {
+                    name: branchName,
+                    target: {
+                        hash: startPoint || 'HEAD'
+                    }
+                }
+            );
+
+            return {
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
+            };
+        } else {
+            const project = params.project || this.config.defaultProject;
+            if (!project) {
+                throw new McpError(ErrorCode.InvalidParams, 'Project is required for Bitbucket Server');
+            }
+
+            const response = await this.api.post(
+                `/projects/${project}/repos/${repository}/branches`,
+                {
+                    name: branchName,
+                    startPoint: startPoint || 'refs/heads/main'
+                }
+            );
+
+            return {
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
+            };
+        }
+    }
+
+    private async deleteBranch(params: BranchParams) {
+        const {repository, branchName} = params;
+
+        if (!repository || !branchName) {
+            throw new McpError(ErrorCode.InvalidParams, 'Repository and branchName are required');
+        }
+
+        if (this.config.isCloud) {
+            const workspace = params.workspace || this.config.defaultProject;
+            if (!workspace) {
+                throw new McpError(ErrorCode.InvalidParams, 'Workspace is required for Bitbucket Cloud');
+            }
+
+            await this.api.delete(`/repositories/${workspace}/${repository}/refs/branches/${branchName}`);
+
+            return {
+                content: [{type: 'text', text: 'Branch deleted successfully'}]
+            };
+        } else {
+            const project = params.project || this.config.defaultProject;
+            if (!project) {
+                throw new McpError(ErrorCode.InvalidParams, 'Project is required for Bitbucket Server');
+            }
+
+            await this.api.delete(
+                `/projects/${project}/repos/${repository}/branches`,
+                {data: {name: `refs/heads/${branchName}`}}
+            );
+
+            return {
+                content: [{type: 'text', text: 'Branch deleted successfully'}]
+            };
+        }
+    }
+
+    // Commit Operations
+    private async listCommits(params: CommitParams, options: ListOptions = {}) {
+        const {repository, branch} = params;
+        const {limit = 25, start = 0} = options;
+
+        if (!repository) {
+            throw new McpError(ErrorCode.InvalidParams, 'Repository is required');
+        }
+
+        if (this.config.isCloud) {
+            const workspace = params.workspace || this.config.defaultProject;
+            if (!workspace) {
+                throw new McpError(ErrorCode.InvalidParams, 'Workspace is required for Bitbucket Cloud');
+            }
+
+            const pathParams = branch ? `/${branch}` : '';
+            const response = await this.api.get(
+                `/repositories/${workspace}/${repository}/commits${pathParams}`,
+                {params: {pagelen: limit, page: Math.floor(start / limit) + 1}}
+            );
+
+            return {
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
+            };
+        } else {
+            const project = params.project || this.config.defaultProject;
+            if (!project) {
+                throw new McpError(ErrorCode.InvalidParams, 'Project is required for Bitbucket Server');
+            }
+
+            const branchParam = branch ? {until: branch} : {};
+            const response = await this.api.get(
+                `/projects/${project}/repos/${repository}/commits`,
+                {params: {limit, start, ...branchParam}}
+            );
+
+            return {
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
+            };
+        }
+    }
+
+    private async getCommit(params: CommitParams) {
+        const {repository, commitId} = params;
+
+        if (!repository || !commitId) {
+            throw new McpError(ErrorCode.InvalidParams, 'Repository and commitId are required');
+        }
+
+        if (this.config.isCloud) {
+            const workspace = params.workspace || this.config.defaultProject;
+            if (!workspace) {
+                throw new McpError(ErrorCode.InvalidParams, 'Workspace is required for Bitbucket Cloud');
+            }
+
+            const response = await this.api.get(
+                `/repositories/${workspace}/${repository}/commit/${commitId}`
+            );
+
+            return {
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
+            };
+        } else {
+            const project = params.project || this.config.defaultProject;
+            if (!project) {
+                throw new McpError(ErrorCode.InvalidParams, 'Project is required for Bitbucket Server');
+            }
+
+            const response = await this.api.get(
+                `/projects/${project}/repos/${repository}/commits/${commitId}`
+            );
+
+            return {
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
+            };
+        }
+    }
+
+    // Issue Operations
+    private async listIssues(params: IssueParams, options: {state?: string; limit?: number; start?: number} = {}) {
+        const {repository} = params;
+        const {state, limit = 25, start = 0} = options;
+
+        if (!repository) {
+            throw new McpError(ErrorCode.InvalidParams, 'Repository is required');
+        }
+
+        if (this.config.isCloud) {
+            const workspace = params.workspace || this.config.defaultProject;
+            if (!workspace) {
+                throw new McpError(ErrorCode.InvalidParams, 'Workspace is required for Bitbucket Cloud');
+            }
+
+            const stateParam = state ? {state} : {};
+            const response = await this.api.get(
+                `/repositories/${workspace}/${repository}/issues`,
+                {params: {pagelen: limit, page: Math.floor(start / limit) + 1, ...stateParam}}
+            );
+
+            return {
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
+            };
+        } else {
+            // Bitbucket Server doesn't have built-in issue tracking, but some may use plugins
+            throw new McpError(ErrorCode.InvalidParams, 'Issue tracking is not available in Bitbucket Server by default');
+        }
+    }
+
+    private async createIssue(input: CreateIssueInput) {
+        const {repository, title} = input;
+
+        if (!repository || !title) {
+            throw new McpError(ErrorCode.InvalidParams, 'Repository and title are required');
+        }
+
+        if (this.config.isCloud) {
+            const workspace = input.workspace || this.config.defaultProject;
+            if (!workspace) {
+                throw new McpError(ErrorCode.InvalidParams, 'Workspace is required for Bitbucket Cloud');
+            }
+
+            const issueData: any = {
+                title,
+                content: {
+                    raw: input.content || '',
+                    markup: 'markdown'
+                }
+            };
+
+            if (input.kind) issueData.kind = input.kind;
+            if (input.priority) issueData.priority = input.priority;
+            if (input.assignee) issueData.assignee = {username: input.assignee};
+
+            const response = await this.api.post(
+                `/repositories/${workspace}/${repository}/issues`,
+                issueData
+            );
+
+            return {
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
+            };
+        } else {
+            throw new McpError(ErrorCode.InvalidParams, 'Issue tracking is not available in Bitbucket Server by default');
+        }
+    }
+
+    private async getIssue(params: IssueParams) {
+        const {repository, issueId} = params;
+
+        if (!repository || !issueId) {
+            throw new McpError(ErrorCode.InvalidParams, 'Repository and issueId are required');
+        }
+
+        if (this.config.isCloud) {
+            const workspace = params.workspace || this.config.defaultProject;
+            if (!workspace) {
+                throw new McpError(ErrorCode.InvalidParams, 'Workspace is required for Bitbucket Cloud');
+            }
+
+            const response = await this.api.get(
+                `/repositories/${workspace}/${repository}/issues/${issueId}`
+            );
+
+            return {
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
+            };
+        } else {
+            throw new McpError(ErrorCode.InvalidParams, 'Issue tracking is not available in Bitbucket Server by default');
+        }
+    }
+
+    // File Operations
+    private async getFileContent(params: FileParams) {
+        const {repository, path} = params;
+
+        if (!repository || !path) {
+            throw new McpError(ErrorCode.InvalidParams, 'Repository and path are required');
+        }
+
+        if (this.config.isCloud) {
+            const workspace = params.workspace || this.config.defaultProject;
+            if (!workspace) {
+                throw new McpError(ErrorCode.InvalidParams, 'Workspace is required for Bitbucket Cloud');
+            }
+
+            const ref = params.commitId || params.branch || 'HEAD';
+            const response = await this.api.get(
+                `/repositories/${workspace}/${repository}/src/${ref}/${path}`
+            );
+
+            return {
+                content: [{type: 'text', text: response.data}]
+            };
+        } else {
+            const project = params.project || this.config.defaultProject;
+            if (!project) {
+                throw new McpError(ErrorCode.InvalidParams, 'Project is required for Bitbucket Server');
+            }
+
+            const ref = params.commitId || params.branch || 'HEAD';
+            const response = await this.api.get(
+                `/projects/${project}/repos/${repository}/browse/${path}`,
+                {params: {at: ref, raw: true}}
+            );
+
+            return {
+                content: [{type: 'text', text: response.data}]
+            };
+        }
+    }
+
+    private async listDirectory(params: FileParams) {
+        const {repository} = params;
+        const dirPath = params.path || '';
+
+        if (!repository) {
+            throw new McpError(ErrorCode.InvalidParams, 'Repository is required');
+        }
+
+        if (this.config.isCloud) {
+            const workspace = params.workspace || this.config.defaultProject;
+            if (!workspace) {
+                throw new McpError(ErrorCode.InvalidParams, 'Workspace is required for Bitbucket Cloud');
+            }
+
+            const ref = params.commitId || params.branch || 'HEAD';
+            const response = await this.api.get(
+                `/repositories/${workspace}/${repository}/src/${ref}/${dirPath}`
+            );
+
+            return {
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
+            };
+        } else {
+            const project = params.project || this.config.defaultProject;
+            if (!project) {
+                throw new McpError(ErrorCode.InvalidParams, 'Project is required for Bitbucket Server');
+            }
+
+            const ref = params.commitId || params.branch || 'HEAD';
+            const response = await this.api.get(
+                `/projects/${project}/repos/${repository}/browse/${dirPath}`,
+                {params: {at: ref}}
+            );
+
+            return {
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
+            };
+        }
+    }
+
+    // Tag Operations
+    private async listTags(params: TagParams, options: ListOptions = {}) {
+        const {repository} = params;
+        const {limit = 25, start = 0} = options;
+
+        if (!repository) {
+            throw new McpError(ErrorCode.InvalidParams, 'Repository is required');
+        }
+
+        if (this.config.isCloud) {
+            const workspace = params.workspace || this.config.defaultProject;
+            if (!workspace) {
+                throw new McpError(ErrorCode.InvalidParams, 'Workspace is required for Bitbucket Cloud');
+            }
+
+            const response = await this.api.get(
+                `/repositories/${workspace}/${repository}/refs/tags`,
+                {params: {pagelen: limit, page: Math.floor(start / limit) + 1}}
+            );
+
+            return {
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
+            };
+        } else {
+            const project = params.project || this.config.defaultProject;
+            if (!project) {
+                throw new McpError(ErrorCode.InvalidParams, 'Project is required for Bitbucket Server');
+            }
+
+            const response = await this.api.get(
+                `/projects/${project}/repos/${repository}/tags`,
+                {params: {limit, start}}
+            );
+
+            return {
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
+            };
+        }
+    }
+
+    private async createTag(params: TagParams, options: {commitId?: string; message?: string} = {}) {
+        const {repository, tagName} = params;
+        const {commitId, message} = options;
+
+        if (!repository || !tagName) {
+            throw new McpError(ErrorCode.InvalidParams, 'Repository and tagName are required');
+        }
+
+        if (this.config.isCloud) {
+            const workspace = params.workspace || this.config.defaultProject;
+            if (!workspace) {
+                throw new McpError(ErrorCode.InvalidParams, 'Workspace is required for Bitbucket Cloud');
+            }
+
+            const tagData: any = {
+                name: tagName,
+                target: {
+                    hash: commitId || 'HEAD'
+                }
+            };
+
+            if (message) tagData.message = message;
+
+            const response = await this.api.post(
+                `/repositories/${workspace}/${repository}/refs/tags`,
+                tagData
+            );
+
+            return {
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
+            };
+        } else {
+            const project = params.project || this.config.defaultProject;
+            if (!project) {
+                throw new McpError(ErrorCode.InvalidParams, 'Project is required for Bitbucket Server');
+            }
+
+            const response = await this.api.post(
+                `/projects/${project}/repos/${repository}/tags`,
+                {
+                    name: tagName,
+                    startPoint: commitId || 'HEAD',
+                    message: message || ''
+                }
+            );
+
+            return {
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
+            };
+        }
+    }
+
+    // Repository Management
+    private async createRepository(workspaceOrProject: string, input: CreateRepositoryInput) {
+        const {name} = input;
+
+        if (!name) {
+            throw new McpError(ErrorCode.InvalidParams, 'Repository name is required');
+        }
+
+        if (this.config.isCloud) {
+            const workspace = workspaceOrProject;
+            const repoData: any = {
+                name,
+                slug: name.toLowerCase().replace(/[^a-z0-9-]/g, '-'),
+                is_private: input.isPrivate !== false,
+                fork_policy: input.forkPolicy || 'allow_forks',
+                has_issues: input.hasIssues !== false,
+                has_wiki: input.hasWiki || false,
+                project: {
+                    key: workspace
+                }
+            };
+
+            if (input.description) repoData.description = input.description;
+            if (input.language) repoData.language = input.language;
+
+            const response = await this.api.post(
+                `/repositories/${workspace}/${repoData.slug}`,
+                repoData
+            );
+
+            return {
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
+            };
+        } else {
+            const project = workspaceOrProject;
+            const repoData: any = {
+                name,
+                forkable: input.forkPolicy !== 'no_forks',
+                public: !input.isPrivate
+            };
+
+            if (input.description) repoData.description = input.description;
+
+            const response = await this.api.post(
+                `/projects/${project}/repos`,
+                repoData
+            );
+
+            return {
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
+            };
+        }
+    }
+
+    private async forkRepository(sourceParams: RepositoryParams, forkOptions: {forkWorkspace?: string; forkProject?: string; name?: string}) {
+        const {repository} = sourceParams;
+
+        if (!repository) {
+            throw new McpError(ErrorCode.InvalidParams, 'Repository is required');
+        }
+
+        if (this.config.isCloud) {
+            const workspace = sourceParams.workspace || this.config.defaultProject;
+            if (!workspace) {
+                throw new McpError(ErrorCode.InvalidParams, 'Workspace is required for Bitbucket Cloud');
+            }
+
+            const forkData: any = {};
+            if (forkOptions.name) forkData.name = forkOptions.name;
+            if (forkOptions.forkWorkspace) {
+                forkData.parent = {
+                    full_name: `${workspace}/${repository}`
+                };
+                forkData.workspace = {
+                    slug: forkOptions.forkWorkspace
+                };
+            }
+
+            const response = await this.api.post(
+                `/repositories/${workspace}/${repository}/forks`,
+                forkData
+            );
+
+            return {
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
+            };
+        } else {
+            const project = sourceParams.project || this.config.defaultProject;
+            if (!project) {
+                throw new McpError(ErrorCode.InvalidParams, 'Project is required for Bitbucket Server');
+            }
+
+            const forkData: any = {
+                slug: forkOptions.name || repository
+            };
+            if (forkOptions.forkProject) forkData.project = {key: forkOptions.forkProject};
+
+            const response = await this.api.post(
+                `/projects/${project}/repos/${repository}`,
+                forkData
+            );
+
+            return {
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
+            };
+        }
+    }
+
+    // User Operations
+    private async getUser(username?: string) {
+        if (this.config.isCloud) {
+            const endpoint = username ? `/users/${username}` : '/user';
+            const response = await this.api.get(endpoint);
+
+            return {
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
+            };
+        } else {
+            const endpoint = username ? `/users/${username}` : '/users';
+            const response = await this.api.get(endpoint);
+
+            return {
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
+            };
+        }
+    }
+
+    // Webhook Operations
+    private async listWebhooks(params: WebhookParams) {
+        const {repository} = params;
+
+        if (!repository) {
+            throw new McpError(ErrorCode.InvalidParams, 'Repository is required');
+        }
+
+        if (this.config.isCloud) {
+            const workspace = params.workspace || this.config.defaultProject;
+            if (!workspace) {
+                throw new McpError(ErrorCode.InvalidParams, 'Workspace is required for Bitbucket Cloud');
+            }
+
+            const response = await this.api.get(
+                `/repositories/${workspace}/${repository}/hooks`
+            );
+
+            return {
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
+            };
+        } else {
+            const project = params.project || this.config.defaultProject;
+            if (!project) {
+                throw new McpError(ErrorCode.InvalidParams, 'Project is required for Bitbucket Server');
+            }
+
+            const response = await this.api.get(
+                `/projects/${project}/repos/${repository}/webhooks`
+            );
+
+            return {
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
+            };
+        }
+    }
+
+    private async createWebhook(input: CreateWebhookInput) {
+        const {repository, url, events} = input;
+
+        if (!repository || !url || !events || events.length === 0) {
+            throw new McpError(ErrorCode.InvalidParams, 'Repository, url, and events are required');
+        }
+
+        if (this.config.isCloud) {
+            const workspace = input.workspace || this.config.defaultProject;
+            if (!workspace) {
+                throw new McpError(ErrorCode.InvalidParams, 'Workspace is required for Bitbucket Cloud');
+            }
+
+            const webhookData = {
+                description: input.description || '',
+                url,
+                active: input.active !== false,
+                events
+            };
+
+            const response = await this.api.post(
+                `/repositories/${workspace}/${repository}/hooks`,
+                webhookData
+            );
+
+            return {
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
+            };
+        } else {
+            const project = input.project || this.config.defaultProject;
+            if (!project) {
+                throw new McpError(ErrorCode.InvalidParams, 'Project is required for Bitbucket Server');
+            }
+
+            const webhookData = {
+                name: input.description || 'MCP Webhook',
+                url,
+                active: input.active !== false,
+                events: events.map(event => event.replace(':', '_').toUpperCase())
+            };
+
+            const response = await this.api.post(
+                `/projects/${project}/repos/${repository}/webhooks`,
+                webhookData
+            );
+
+            return {
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
+            };
+        }
+    }
+
+    private async deleteWebhook(params: WebhookParams) {
+        const {repository, webhookId} = params;
+
+        if (!repository || !webhookId) {
+            throw new McpError(ErrorCode.InvalidParams, 'Repository and webhookId are required');
+        }
+
+        if (this.config.isCloud) {
+            const workspace = params.workspace || this.config.defaultProject;
+            if (!workspace) {
+                throw new McpError(ErrorCode.InvalidParams, 'Workspace is required for Bitbucket Cloud');
+            }
+
+            await this.api.delete(`/repositories/${workspace}/${repository}/hooks/${webhookId}`);
+
+            return {
+                content: [{type: 'text', text: 'Webhook deleted successfully'}]
+            };
+        } else {
+            const project = params.project || this.config.defaultProject;
+            if (!project) {
+                throw new McpError(ErrorCode.InvalidParams, 'Project is required for Bitbucket Server');
+            }
+
+            await this.api.delete(`/projects/${project}/repos/${repository}/webhooks/${webhookId}`);
+
+            return {
+                content: [{type: 'text', text: 'Webhook deleted successfully'}]
             };
         }
     }
