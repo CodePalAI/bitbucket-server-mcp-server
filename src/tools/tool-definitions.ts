@@ -83,25 +83,6 @@ export function createToolDefinitions(config: BitbucketConfig) {
             }
         },
         {
-            name: 'fork_repository',
-            description: 'Create a fork of a repository to your workspace or project.',
-            inputSchema: {
-                type: 'object',
-                properties: {
-                    sourceWorkspace: {
-                        type: 'string',
-                        description: 'Source workspace/project containing the repository to fork.'
-                    },
-                    repository: {type: 'string', description: 'Repository slug to fork.'},
-                    ...projectOrWorkspaceProperty,
-                    name: {type: 'string', description: 'Name for the forked repository (optional).'},
-                    description: {type: 'string', description: 'Description for the forked repository (optional).'},
-                    isPrivate: {type: 'boolean', description: 'Whether the forked repository should be private.'}
-                },
-                required: ['sourceWorkspace', 'repository']
-            }
-        },
-        {
             name: 'create_pull_request',
             description: 'Create a new pull request to propose code changes, request reviews, or merge feature branches. Use this when you want to submit code for review, merge a feature branch, or contribute changes to a repository. Automatically sets up branch references and can assign reviewers.',
             inputSchema: {
@@ -1223,47 +1204,6 @@ export function createToolDefinitions(config: BitbucketConfig) {
                     commit2: {type: 'string', description: 'Second commit/branch/tag.'}
                 },
                 required: ['repository', 'commit1', 'commit2']
-            }
-        },
-        // Downloads and attachments
-        {
-            name: 'list_downloads',
-            description: 'List files uploaded to the repository downloads section.',
-            inputSchema: {
-                type: 'object',
-                properties: {
-                    ...projectOrWorkspaceProperty,
-                    repository: {type: 'string', description: 'Repository slug to list downloads from.'}
-                },
-                required: ['repository']
-            }
-        },
-        {
-            name: 'upload_download',
-            description: 'Upload a file to the repository downloads section.',
-            inputSchema: {
-                type: 'object',
-                properties: {
-                    ...projectOrWorkspaceProperty,
-                    repository: {type: 'string', description: 'Repository slug to upload to.'},
-                    filename: {type: 'string', description: 'Name for the uploaded file.'},
-                    content: {type: 'string', description: 'Base64 encoded file content.'},
-                    contentType: {type: 'string', description: 'MIME type of the file.'}
-                },
-                required: ['repository', 'filename', 'content']
-            }
-        },
-        {
-            name: 'delete_download',
-            description: 'Delete a file from the repository downloads section.',
-            inputSchema: {
-                type: 'object',
-                properties: {
-                    ...projectOrWorkspaceProperty,
-                    repository: {type: 'string', description: 'Repository slug containing the download.'},
-                    filename: {type: 'string', description: 'Name of the file to delete.'}
-                },
-                required: ['repository', 'filename']
             }
         },
         // File history and blame
