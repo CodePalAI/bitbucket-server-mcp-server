@@ -233,4 +233,114 @@ export interface FileHistoryParams extends RepositoryParams {
     branch?: string;
     limit?: number;
     start?: number;
+}
+
+// Snippets interfaces (Cloud only)
+export interface SnippetParams {
+    workspace?: string;
+    snippetId?: string;
+}
+
+export interface CreateSnippetInput extends SnippetParams {
+    title: string;
+    isPrivate?: boolean;
+    files: { [filename: string]: string };
+}
+
+export interface UpdateSnippetInput extends SnippetParams {
+    snippetId: string;
+    title?: string;
+    isPrivate?: boolean;
+    files?: { [filename: string]: string };
+}
+
+export interface SnippetFileParams extends SnippetParams {
+    snippetId: string;
+    filename: string;
+}
+
+// Branch restrictions interfaces
+export interface BranchRestrictionParams extends RepositoryParams {
+    restrictionId?: string;
+    kind?: string;
+}
+
+export interface CreateBranchRestrictionInput extends RepositoryParams {
+    kind: string;
+    pattern: string;
+    users?: string[];
+    groups?: string[];
+}
+
+export interface UpdateBranchRestrictionInput extends RepositoryParams {
+    restrictionId: string;
+    pattern?: string;
+    users?: string[];
+    groups?: string[];
+}
+
+// Comment interfaces
+export interface CommitCommentParams extends RepositoryParams {
+    commitId: string;
+    commentId?: string;
+}
+
+export interface CreateCommitCommentInput extends CommitCommentParams {
+    content: string;
+    path?: string;
+    line?: number;
+}
+
+export interface UpdateCommitCommentInput extends CommitCommentParams {
+    commentId: string;
+    content: string;
+}
+
+export interface IssueCommentParams extends RepositoryParams {
+    issueId: number;
+    commentId?: string;
+}
+
+export interface CreateIssueCommentInput extends IssueCommentParams {
+    content: string;
+}
+
+export interface UpdateIssueCommentInput extends IssueCommentParams {
+    commentId: string;
+    content: string;
+}
+
+// Default reviewers interfaces
+export interface DefaultReviewerParams extends RepositoryParams {
+    username?: string;
+}
+
+// Repository comparison interfaces
+export interface CompareParams extends RepositoryParams {
+    source: string;
+    destination: string;
+    include_merge_commit?: boolean;
+}
+
+export interface MergeBaseParams extends RepositoryParams {
+    commit1: string;
+    commit2: string;
+}
+
+// Downloads interfaces
+export interface DownloadParams extends RepositoryParams {
+    filename?: string;
+}
+
+export interface UploadDownloadInput extends RepositoryParams {
+    filename: string;
+    content: string;
+    contentType?: string;
+}
+
+// File history and blame interfaces
+export interface FileBlameParams extends RepositoryParams {
+    path: string;
+    branch?: string;
+    commitId?: string;
 } 

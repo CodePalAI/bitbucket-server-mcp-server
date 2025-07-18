@@ -819,6 +819,484 @@ export function createToolDefinitions(config: BitbucketConfig) {
                 }
             }
         ] : []),
+        // Bitbucket Cloud specific: Snippets
+        ...(config.isCloud ? [
+            {
+                name: 'list_snippets',
+                description: 'List code snippets for a workspace. Snippets are code segments that can be shared publicly or privately.',
+                inputSchema: {
+                    type: 'object',
+                    properties: {
+                        ...projectOrWorkspaceProperty,
+                        role: {
+                            type: 'string',
+                            enum: ['member', 'contributor', 'owner'],
+                            description: 'Filter snippets by your role (default: member)'
+                        },
+                        limit: {type: 'number', description: 'Number of snippets to return (default: 10, max: 100)'},
+                        page: {type: 'number', description: 'Page number for pagination (default: 1)'}
+                    }
+                }
+            },
+            {
+                name: 'get_snippet',
+                description: 'Get details about a specific snippet including its content and metadata.',
+                inputSchema: {
+                    type: 'object',
+                    properties: {
+                        ...projectOrWorkspaceProperty,
+                        snippetId: {type: 'string', description: 'The snippet ID to retrieve.'}
+                    },
+                    required: ['snippetId']
+                }
+            },
+            {
+                name: 'create_snippet',
+                description: 'Create a new code snippet with one or more files.',
+                inputSchema: {
+                    type: 'object',
+                    properties: {
+                        ...projectOrWorkspaceProperty,
+                        title: {type: 'string', description: 'Title for the snippet.'},
+                        isPrivate: {type: 'boolean', description: 'Whether the snippet should be private (default: true).'},
+                        files: {
+                            type: 'object',
+                            description: 'Files to include in the snippet. Object keys are filenames, values are file content.',
+                            additionalProperties: {type: 'string'}
+                        }
+                    },
+                    required: ['title', 'files']
+                }
+            },
+            {
+                name: 'update_snippet',
+                description: 'Update an existing snippet with new content or metadata.',
+                inputSchema: {
+                    type: 'object',
+                    properties: {
+                        ...projectOrWorkspaceProperty,
+                        snippetId: {type: 'string', description: 'The snippet ID to update.'},
+                        title: {type: 'string', description: 'New title for the snippet.'},
+                        isPrivate: {type: 'boolean', description: 'Whether the snippet should be private.'},
+                        files: {
+                            type: 'object',
+                            description: 'Files to update in the snippet. Object keys are filenames, values are file content.',
+                            additionalProperties: {type: 'string'}
+                        }
+                    },
+                    required: ['snippetId']
+                }
+            },
+            {
+                name: 'delete_snippet',
+                description: 'Delete a snippet permanently.',
+                inputSchema: {
+                    type: 'object',
+                    properties: {
+                        ...projectOrWorkspaceProperty,
+                        snippetId: {type: 'string', description: 'The snippet ID to delete.'}
+                    },
+                    required: ['snippetId']
+                }
+            },
+            {
+                name: 'get_snippet_file',
+                description: 'Get the raw content of a specific file within a snippet.',
+                inputSchema: {
+                    type: 'object',
+                    properties: {
+                        ...projectOrWorkspaceProperty,
+                        snippetId: {type: 'string', description: 'The snippet ID.'},
+                        filename: {type: 'string', description: 'The filename to retrieve from the snippet.'}
+                    },
+                    required: ['snippetId', 'filename']
+                }
+            }
+        ] : []),
+        // Branch restrictions/permissions (both Cloud and Server)
+        {
+            name: 'list_branch_restrictions',
+            description: 'List branch restrictions for a repository to see what rules are enforced on branches.',
+            inputSchema: {
+                type: 'object',
+                properties: {
+                    ...projectOrWorkspaceProperty,
+                    repository: {type: 'string', description: 'Repository slug to list restrictions from.'},
+                    kind: {
+                        type: 'string',
+                        enum: ['push', 'force', 'delete', 'restrict_merges'],
+                        description: 'Filter by restriction type.'
+                    }
+                },
+                required: ['repository']
+            }
+        },
+        {
+            name: 'create_branch_restriction',
+            description: 'Create a new branch restriction to enforce rules on specific branches.',
+            inputSchema: {
+                type: 'object',
+                properties: {
+                    ...projectOrWorkspaceProperty,
+                    repository: {type: 'string', description: 'Repository slug to create restriction in.'},
+                    kind: {
+                        type: 'string',
+                        enum: ['push', 'force', 'delete', 'restrict_merges'],
+                        description: 'Type of restriction to create.'
+                    },
+                    pattern: {type: 'string', description: 'Branch name pattern (supports wildcards like main, feature/*, etc).'},
+                    users: {
+                        type: 'array',
+                        items: {type: 'string'},
+                        description: 'List of usernames exempt from this restriction.'
+                    },
+                    groups: {
+                        type: 'array',
+                        items: {type: 'string'},
+                        description: 'List of groups exempt from this restriction.'
+                    }
+                },
+                required: ['repository', 'kind', 'pattern']
+            }
+        },
+        {
+            name: 'get_branch_restriction',
+            description: 'Get details about a specific branch restriction.',
+            inputSchema: {
+                type: 'object',
+                properties: {
+                    ...projectOrWorkspaceProperty,
+                    repository: {type: 'string', description: 'Repository slug containing the restriction.'},
+                    restrictionId: {type: 'string', description: 'ID of the branch restriction.'}
+                },
+                required: ['repository', 'restrictionId']
+            }
+        },
+        {
+            name: 'update_branch_restriction',
+            description: 'Update an existing branch restriction.',
+            inputSchema: {
+                type: 'object',
+                properties: {
+                    ...projectOrWorkspaceProperty,
+                    repository: {type: 'string', description: 'Repository slug containing the restriction.'},
+                    restrictionId: {type: 'string', description: 'ID of the branch restriction.'},
+                    pattern: {type: 'string', description: 'Updated branch name pattern.'},
+                    users: {
+                        type: 'array',
+                        items: {type: 'string'},
+                        description: 'Updated list of usernames exempt from this restriction.'
+                    },
+                    groups: {
+                        type: 'array',
+                        items: {type: 'string'},
+                        description: 'Updated list of groups exempt from this restriction.'
+                    }
+                },
+                required: ['repository', 'restrictionId']
+            }
+        },
+        {
+            name: 'delete_branch_restriction',
+            description: 'Delete a branch restriction.',
+            inputSchema: {
+                type: 'object',
+                properties: {
+                    ...projectOrWorkspaceProperty,
+                    repository: {type: 'string', description: 'Repository slug containing the restriction.'},
+                    restrictionId: {type: 'string', description: 'ID of the branch restriction to delete.'}
+                },
+                required: ['repository', 'restrictionId']
+            }
+        },
+        // Commit comments
+        {
+            name: 'list_commit_comments',
+            description: 'List comments on a specific commit for code review and discussion.',
+            inputSchema: {
+                type: 'object',
+                properties: {
+                    ...projectOrWorkspaceProperty,
+                    repository: {type: 'string', description: 'Repository slug containing the commit.'},
+                    commitId: {type: 'string', description: 'Commit hash to list comments from.'},
+                    limit: {type: 'number', description: 'Number of comments to return (default: 25, max: 100)'},
+                    start: {type: 'number', description: 'Start index for pagination (default: 0)'}
+                },
+                required: ['repository', 'commitId']
+            }
+        },
+        {
+            name: 'create_commit_comment',
+            description: 'Add a comment to a commit for code review or discussion.',
+            inputSchema: {
+                type: 'object',
+                properties: {
+                    ...projectOrWorkspaceProperty,
+                    repository: {type: 'string', description: 'Repository slug containing the commit.'},
+                    commitId: {type: 'string', description: 'Commit hash to comment on.'},
+                    content: {type: 'string', description: 'Comment text content. Supports Markdown formatting.'},
+                    path: {type: 'string', description: 'File path for inline comments.'},
+                    line: {type: 'number', description: 'Line number for inline comments.'}
+                },
+                required: ['repository', 'commitId', 'content']
+            }
+        },
+        {
+            name: 'get_commit_comment',
+            description: 'Get details about a specific commit comment.',
+            inputSchema: {
+                type: 'object',
+                properties: {
+                    ...projectOrWorkspaceProperty,
+                    repository: {type: 'string', description: 'Repository slug containing the commit.'},
+                    commitId: {type: 'string', description: 'Commit hash containing the comment.'},
+                    commentId: {type: 'string', description: 'ID of the comment to retrieve.'}
+                },
+                required: ['repository', 'commitId', 'commentId']
+            }
+        },
+        {
+            name: 'update_commit_comment',
+            description: 'Update the content of an existing commit comment.',
+            inputSchema: {
+                type: 'object',
+                properties: {
+                    ...projectOrWorkspaceProperty,
+                    repository: {type: 'string', description: 'Repository slug containing the commit.'},
+                    commitId: {type: 'string', description: 'Commit hash containing the comment.'},
+                    commentId: {type: 'string', description: 'ID of the comment to update.'},
+                    content: {type: 'string', description: 'Updated comment text content.'}
+                },
+                required: ['repository', 'commitId', 'commentId', 'content']
+            }
+        },
+        {
+            name: 'delete_commit_comment',
+            description: 'Delete a commit comment.',
+            inputSchema: {
+                type: 'object',
+                properties: {
+                    ...projectOrWorkspaceProperty,
+                    repository: {type: 'string', description: 'Repository slug containing the commit.'},
+                    commitId: {type: 'string', description: 'Commit hash containing the comment.'},
+                    commentId: {type: 'string', description: 'ID of the comment to delete.'}
+                },
+                required: ['repository', 'commitId', 'commentId']
+            }
+        },
+        // Issue comments
+        {
+            name: 'list_issue_comments',
+            description: 'List comments on a specific issue for discussion and tracking.',
+            inputSchema: {
+                type: 'object',
+                properties: {
+                    ...projectOrWorkspaceProperty,
+                    repository: {type: 'string', description: 'Repository slug containing the issue.'},
+                    issueId: {type: 'number', description: 'Issue ID to list comments from.'},
+                    limit: {type: 'number', description: 'Number of comments to return (default: 25, max: 100)'},
+                    start: {type: 'number', description: 'Start index for pagination (default: 0)'}
+                },
+                required: ['repository', 'issueId']
+            }
+        },
+        {
+            name: 'create_issue_comment',
+            description: 'Add a comment to an issue for discussion and updates.',
+            inputSchema: {
+                type: 'object',
+                properties: {
+                    ...projectOrWorkspaceProperty,
+                    repository: {type: 'string', description: 'Repository slug containing the issue.'},
+                    issueId: {type: 'number', description: 'Issue ID to comment on.'},
+                    content: {type: 'string', description: 'Comment text content. Supports Markdown formatting.'}
+                },
+                required: ['repository', 'issueId', 'content']
+            }
+        },
+        {
+            name: 'get_issue_comment',
+            description: 'Get details about a specific issue comment.',
+            inputSchema: {
+                type: 'object',
+                properties: {
+                    ...projectOrWorkspaceProperty,
+                    repository: {type: 'string', description: 'Repository slug containing the issue.'},
+                    issueId: {type: 'number', description: 'Issue ID containing the comment.'},
+                    commentId: {type: 'string', description: 'ID of the comment to retrieve.'}
+                },
+                required: ['repository', 'issueId', 'commentId']
+            }
+        },
+        {
+            name: 'update_issue_comment',
+            description: 'Update the content of an existing issue comment.',
+            inputSchema: {
+                type: 'object',
+                properties: {
+                    ...projectOrWorkspaceProperty,
+                    repository: {type: 'string', description: 'Repository slug containing the issue.'},
+                    issueId: {type: 'number', description: 'Issue ID containing the comment.'},
+                    commentId: {type: 'string', description: 'ID of the comment to update.'},
+                    content: {type: 'string', description: 'Updated comment text content.'}
+                },
+                required: ['repository', 'issueId', 'commentId', 'content']
+            }
+        },
+        {
+            name: 'delete_issue_comment',
+            description: 'Delete an issue comment.',
+            inputSchema: {
+                type: 'object',
+                properties: {
+                    ...projectOrWorkspaceProperty,
+                    repository: {type: 'string', description: 'Repository slug containing the issue.'},
+                    issueId: {type: 'number', description: 'Issue ID containing the comment.'},
+                    commentId: {type: 'string', description: 'ID of the comment to delete.'}
+                },
+                required: ['repository', 'issueId', 'commentId']
+            }
+        },
+        // Default reviewers
+        {
+            name: 'list_default_reviewers',
+            description: 'List default reviewers configured for a repository or project.',
+            inputSchema: {
+                type: 'object',
+                properties: {
+                    ...projectOrWorkspaceProperty,
+                    repository: {type: 'string', description: 'Repository slug to list default reviewers from (optional for project-level).'}
+                }
+            }
+        },
+        {
+            name: 'add_default_reviewer',
+            description: 'Add a user as a default reviewer for pull requests.',
+            inputSchema: {
+                type: 'object',
+                properties: {
+                    ...projectOrWorkspaceProperty,
+                    repository: {type: 'string', description: 'Repository slug to add default reviewer to (optional for project-level).'},
+                    username: {type: 'string', description: 'Username to add as default reviewer.'}
+                },
+                required: ['username']
+            }
+        },
+        {
+            name: 'remove_default_reviewer',
+            description: 'Remove a user from default reviewers.',
+            inputSchema: {
+                type: 'object',
+                properties: {
+                    ...projectOrWorkspaceProperty,
+                    repository: {type: 'string', description: 'Repository slug to remove default reviewer from (optional for project-level).'},
+                    username: {type: 'string', description: 'Username to remove from default reviewers.'}
+                },
+                required: ['username']
+            }
+        },
+        // Repository compare and merge base
+        {
+            name: 'compare_commits',
+            description: 'Compare two commits, branches, or tags to see differences.',
+            inputSchema: {
+                type: 'object',
+                properties: {
+                    ...projectOrWorkspaceProperty,
+                    repository: {type: 'string', description: 'Repository slug to compare in.'},
+                    source: {type: 'string', description: 'Source commit/branch/tag to compare from.'},
+                    destination: {type: 'string', description: 'Destination commit/branch/tag to compare to.'},
+                    include_merge_commit: {type: 'boolean', description: 'Whether to include merge commits in comparison.'}
+                },
+                required: ['repository', 'source', 'destination']
+            }
+        },
+        {
+            name: 'get_merge_base',
+            description: 'Get the merge base (common ancestor) between two commits or branches.',
+            inputSchema: {
+                type: 'object',
+                properties: {
+                    ...projectOrWorkspaceProperty,
+                    repository: {type: 'string', description: 'Repository slug to find merge base in.'},
+                    commit1: {type: 'string', description: 'First commit/branch/tag.'},
+                    commit2: {type: 'string', description: 'Second commit/branch/tag.'}
+                },
+                required: ['repository', 'commit1', 'commit2']
+            }
+        },
+        // Downloads and attachments
+        {
+            name: 'list_downloads',
+            description: 'List files uploaded to the repository downloads section.',
+            inputSchema: {
+                type: 'object',
+                properties: {
+                    ...projectOrWorkspaceProperty,
+                    repository: {type: 'string', description: 'Repository slug to list downloads from.'}
+                },
+                required: ['repository']
+            }
+        },
+        {
+            name: 'upload_download',
+            description: 'Upload a file to the repository downloads section.',
+            inputSchema: {
+                type: 'object',
+                properties: {
+                    ...projectOrWorkspaceProperty,
+                    repository: {type: 'string', description: 'Repository slug to upload to.'},
+                    filename: {type: 'string', description: 'Name for the uploaded file.'},
+                    content: {type: 'string', description: 'Base64 encoded file content.'},
+                    contentType: {type: 'string', description: 'MIME type of the file.'}
+                },
+                required: ['repository', 'filename', 'content']
+            }
+        },
+        {
+            name: 'delete_download',
+            description: 'Delete a file from the repository downloads section.',
+            inputSchema: {
+                type: 'object',
+                properties: {
+                    ...projectOrWorkspaceProperty,
+                    repository: {type: 'string', description: 'Repository slug containing the download.'},
+                    filename: {type: 'string', description: 'Name of the file to delete.'}
+                },
+                required: ['repository', 'filename']
+            }
+        },
+        // File history and blame
+        {
+            name: 'get_file_history',
+            description: 'Get the commit history for a specific file to see all changes over time.',
+            inputSchema: {
+                type: 'object',
+                properties: {
+                    ...projectOrWorkspaceProperty,
+                    repository: {type: 'string', description: 'Repository slug containing the file.'},
+                    path: {type: 'string', description: 'File path to get history for.'},
+                    branch: {type: 'string', description: 'Branch to get file history from (default: default branch).'},
+                    limit: {type: 'number', description: 'Number of commits to return (default: 25, max: 100)'}
+                },
+                required: ['repository', 'path']
+            }
+        },
+        {
+            name: 'get_file_blame',
+            description: 'Get blame information for a file showing who last modified each line.',
+            inputSchema: {
+                type: 'object',
+                properties: {
+                    ...projectOrWorkspaceProperty,
+                    repository: {type: 'string', description: 'Repository slug containing the file.'},
+                    path: {type: 'string', description: 'File path to get blame information for.'},
+                    branch: {type: 'string', description: 'Branch to get file blame from (default: default branch).'},
+                    commitId: {type: 'string', description: 'Specific commit to get blame from (takes precedence over branch).'}
+                },
+                required: ['repository', 'path']
+            }
+        },
         // Bitbucket Server specific: Build status
         ...(!config.isCloud ? [
             {
@@ -854,6 +1332,171 @@ export function createToolDefinitions(config: BitbucketConfig) {
                         description: {type: 'string', description: 'Description of the build status.'}
                     },
                     required: ['repository', 'commitId', 'state', 'key']
+                }
+            }
+        ] : []),
+        
+        // Downloads functionality (both Cloud and Server)
+        {
+            name: 'list_downloads',
+            description: 'List files available for download from a repository (Cloud: downloads, Server: artifacts).',
+            inputSchema: {
+                type: 'object',
+                properties: {
+                    ...projectOrWorkspaceProperty,
+                    repository: {type: 'string', description: 'Repository slug to list downloads from.'}
+                },
+                required: ['repository']
+            }
+        },
+        {
+            name: 'upload_download',
+            description: 'Upload a file to repository downloads (Cloud only).',
+            inputSchema: {
+                type: 'object',
+                properties: {
+                    ...projectOrWorkspaceProperty,
+                    repository: {type: 'string', description: 'Repository slug to upload file to.'},
+                    filename: {type: 'string', description: 'Name of the file to upload.'},
+                    content: {type: 'string', description: 'Content of the file to upload.'}
+                },
+                required: ['repository', 'filename', 'content']
+            }
+        },
+        {
+            name: 'delete_download',
+            description: 'Delete a file from repository downloads (Cloud only).',
+            inputSchema: {
+                type: 'object',
+                properties: {
+                    ...projectOrWorkspaceProperty,
+                    repository: {type: 'string', description: 'Repository slug containing the download.'},
+                    filename: {type: 'string', description: 'Name of the file to delete.'}
+                },
+                required: ['repository', 'filename']
+            }
+        },
+        
+        // Forking functionality
+        {
+            name: 'fork_repository',
+            description: 'Create a fork of a repository in your workspace/project or another workspace/project.',
+            inputSchema: {
+                type: 'object',
+                properties: {
+                    ...projectOrWorkspaceProperty,
+                    repository: {type: 'string', description: 'Repository slug to fork.'},
+                    newName: {type: 'string', description: 'Name for the forked repository.'},
+                    targetWorkspace: {type: 'string', description: 'Target workspace for the fork (Cloud only).'},
+                    targetProject: {type: 'string', description: 'Target project for the fork (Server only).'},
+                    isPrivate: {type: 'boolean', description: 'Whether the fork should be private (Cloud only).'}
+                },
+                required: ['repository']
+            }
+        },
+        {
+            name: 'list_forks',
+            description: 'List all forks of a repository.',
+            inputSchema: {
+                type: 'object',
+                properties: {
+                    ...projectOrWorkspaceProperty,
+                    repository: {type: 'string', description: 'Repository slug to list forks from.'},
+                    limit: {type: 'number', description: 'Number of forks to return (default: 25, max: 100)'},
+                    start: {type: 'number', description: 'Start index for pagination (default: 0)'}
+                },
+                required: ['repository']
+            }
+        },
+        
+        // Bitbucket Cloud specific: Deployments and Environments
+        ...(config.isCloud ? [
+            {
+                name: 'list_deployments',
+                description: 'List deployments for a repository in Bitbucket Cloud.',
+                inputSchema: {
+                    type: 'object',
+                    properties: {
+                        ...projectOrWorkspaceProperty,
+                        repository: {type: 'string', description: 'Repository slug to list deployments from.'}
+                    },
+                    required: ['repository']
+                }
+            },
+            {
+                name: 'get_deployment',
+                description: 'Get details about a specific deployment.',
+                inputSchema: {
+                    type: 'object',
+                    properties: {
+                        ...projectOrWorkspaceProperty,
+                        repository: {type: 'string', description: 'Repository slug.'},
+                        deploymentId: {type: 'string', description: 'Deployment ID to retrieve.'}
+                    },
+                    required: ['repository', 'deploymentId']
+                }
+            },
+            {
+                name: 'list_environments',
+                description: 'List deployment environments for a repository.',
+                inputSchema: {
+                    type: 'object',
+                    properties: {
+                        ...projectOrWorkspaceProperty,
+                        repository: {type: 'string', description: 'Repository slug to list environments from.'}
+                    },
+                    required: ['repository']
+                }
+            },
+            {
+                name: 'create_environment',
+                description: 'Create a new deployment environment.',
+                inputSchema: {
+                    type: 'object',
+                    properties: {
+                        ...projectOrWorkspaceProperty,
+                        repository: {type: 'string', description: 'Repository slug.'},
+                        name: {type: 'string', description: 'Environment name.'},
+                        type: {
+                            type: 'string',
+                            enum: ['Test', 'Staging', 'Production'],
+                            description: 'Environment type.'
+                        },
+                        slug: {type: 'string', description: 'URL slug for the environment.'}
+                    },
+                    required: ['repository', 'name', 'type']
+                }
+            },
+            {
+                name: 'update_environment',
+                description: 'Update an existing deployment environment.',
+                inputSchema: {
+                    type: 'object',
+                    properties: {
+                        ...projectOrWorkspaceProperty,
+                        repository: {type: 'string', description: 'Repository slug.'},
+                        environmentUuid: {type: 'string', description: 'Environment UUID to update.'},
+                        name: {type: 'string', description: 'New environment name.'},
+                        type: {
+                            type: 'string',
+                            enum: ['Test', 'Staging', 'Production'],
+                            description: 'New environment type.'
+                        }
+                    },
+                    required: ['repository', 'environmentUuid']
+                }
+            },
+            {
+                name: 'delete_environment',
+                description: 'Delete a deployment environment.',
+                inputSchema: {
+                    type: 'object',
+                    properties: {
+                        ...projectOrWorkspaceProperty,
+                        repository: {type: 'string', description: 'Repository slug.'},
+                        environmentUuid: {type: 'string', description: 'Environment UUID to delete.'}
+                    },
+                    required: ['repository', 'environmentUuid']
                 }
             }
         ] : [])

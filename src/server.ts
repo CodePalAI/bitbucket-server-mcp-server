@@ -9,16 +9,22 @@ import {handleApiError} from './utils/error-handler.js';
 import {createToolDefinitions} from './tools/tool-definitions.js';
 import {
     BranchHandler,
+    BranchRestrictionHandler,
     BuildStatusHandler,
+    CommitCommentHandler,
     CommitHandler,
     DeployKeyHandler,
+    DeploymentHandler,
     DiffHandler,
+    DownloadHandler,
+    ForkHandler,
     IssueHandler,
     PermissionHandler,
     PipelineHandler,
     PullRequestHandler,
     RepositoryHandler,
     SearchHandler,
+    SnippetHandler,
     SshKeyHandler,
     TagHandler,
     UserHandler,
@@ -57,7 +63,9 @@ export class BitbucketServer {
     private config: BitbucketConfig;
     private api: any;
     private branchHandler: BranchHandler;
+    private branchRestrictionHandler: BranchRestrictionHandler;
     private commitHandler: CommitHandler;
+    private commitCommentHandler: CommitCommentHandler;
     private repositoryHandler: RepositoryHandler;
     private pullRequestHandler: PullRequestHandler;
     private issueHandler: IssueHandler;
@@ -70,8 +78,12 @@ export class BitbucketServer {
     private searchHandler: SearchHandler;
     private permissionHandler: PermissionHandler;
     private diffHandler: DiffHandler;
+    private downloadHandler: DownloadHandler;
+    private forkHandler: ForkHandler;
     private pipelineHandler?: PipelineHandler;
     private buildStatusHandler?: BuildStatusHandler;
+    private snippetHandler?: SnippetHandler;
+    private deploymentHandler?: DeploymentHandler;
 
     constructor() {
         this.config = createBitbucketConfig();
@@ -91,7 +103,9 @@ export class BitbucketServer {
 
         // Initialize handlers
         this.branchHandler = new BranchHandler(this.api, this.config);
+        this.branchRestrictionHandler = new BranchRestrictionHandler(this.api, this.config);
         this.commitHandler = new CommitHandler(this.api, this.config);
+        this.commitCommentHandler = new CommitCommentHandler(this.api, this.config);
         this.repositoryHandler = new RepositoryHandler(this.api, this.config);
         this.pullRequestHandler = new PullRequestHandler(this.api, this.config);
         this.issueHandler = new IssueHandler(this.api, this.config);
@@ -104,10 +118,14 @@ export class BitbucketServer {
         this.searchHandler = new SearchHandler(this.api, this.config);
         this.permissionHandler = new PermissionHandler(this.api, this.config);
         this.diffHandler = new DiffHandler(this.api, this.config);
+        this.downloadHandler = new DownloadHandler(this.api, this.config);
+        this.forkHandler = new ForkHandler(this.api, this.config);
 
         // Platform-specific handlers
         if (this.config.isCloud) {
             this.pipelineHandler = new PipelineHandler(this.api, this.config);
+            this.snippetHandler = new SnippetHandler(this.api, this.config);
+            this.deploymentHandler = new DeploymentHandler(this.api, this.config);
         } else {
             this.buildStatusHandler = new BuildStatusHandler(this.api, this.config);
         }
@@ -278,15 +296,15 @@ export class BitbucketServer {
                     }
 
                     case 'fork_repository': {
-                        logger.debug('📂 Executing fork_repository');
-                        const key = this.config.isCloud ? 'workspace' : 'project';
-                        const resolvedProject = getProjectOrWorkspace(this.config, args[key] as string);
-                        return await this.repositoryHandler.forkRepositoryWithParams({
-                            sourceWorkspace: args.sourceWorkspace as string,
+                        logger.debug('🍴 Executing fork_repository');
+                        const projectOrWorkspace = getProjectOrWorkspace(this.config, 
+                            this.config.isCloud ? args.workspace as string : args.project as string);
+                        return await this.forkHandler.forkRepository({
+                            ...(this.config.isCloud ? { workspace: projectOrWorkspace } : { project: projectOrWorkspace }),
                             repository: args.repository as string,
-                            [key]: resolvedProject,
-                            name: args.name as string,
-                            description: args.description as string,
+                            newName: args.newName as string,
+                            targetWorkspace: args.targetWorkspace as string,
+                            targetProject: args.targetProject as string,
                             isPrivate: args.isPrivate as boolean
                         });
                     }
@@ -881,6 +899,328 @@ export class BitbucketServer {
                             name: args.name as string,
                             url: args.url as string,
                             description: args.description as string
+                        });
+                    }
+
+                    // Snippets (Cloud only)
+                    case 'list_snippets': {
+                        if (!this.snippetHandler) {
+                            throw new McpError(ErrorCode.InvalidParams, 'Snippets are only available in Bitbucket Cloud');
+                        }
+                        logger.debug('📝 Executing list_snippets');
+                        const workspace = getProjectOrWorkspace(this.config, args.workspace as string);
+                        return await this.snippetHandler.listSnippets({
+                            workspace,
+                            role: args.role as string,
+                            limit: args.limit as number
+                        });
+                    }
+
+                    case 'get_snippet': {
+                        if (!this.snippetHandler) {
+                            throw new McpError(ErrorCode.InvalidParams, 'Snippets are only available in Bitbucket Cloud');
+                        }
+                        logger.debug('📝 Executing get_snippet');
+                        const workspace = getProjectOrWorkspace(this.config, args.workspace as string);
+                        return await this.snippetHandler.getSnippet({
+                            workspace,
+                            snippetId: args.snippetId as string
+                        });
+                    }
+
+                    case 'create_snippet': {
+                        if (!this.snippetHandler) {
+                            throw new McpError(ErrorCode.InvalidParams, 'Snippets are only available in Bitbucket Cloud');
+                        }
+                        logger.debug('📝 Executing create_snippet');
+                        const workspace = getProjectOrWorkspace(this.config, args.workspace as string);
+                        return await this.snippetHandler.createSnippet({
+                            workspace,
+                            title: args.title as string,
+                            isPrivate: args.isPrivate as boolean,
+                            files: args.files as object
+                        });
+                    }
+
+                    case 'update_snippet': {
+                        if (!this.snippetHandler) {
+                            throw new McpError(ErrorCode.InvalidParams, 'Snippets are only available in Bitbucket Cloud');
+                        }
+                        logger.debug('📝 Executing update_snippet');
+                        const workspace = getProjectOrWorkspace(this.config, args.workspace as string);
+                        return await this.snippetHandler.updateSnippet({
+                            workspace,
+                            snippetId: args.snippetId as string,
+                            title: args.title as string,
+                            isPrivate: args.isPrivate as boolean,
+                            files: args.files as object
+                        });
+                    }
+
+                    case 'delete_snippet': {
+                        if (!this.snippetHandler) {
+                            throw new McpError(ErrorCode.InvalidParams, 'Snippets are only available in Bitbucket Cloud');
+                        }
+                        logger.debug('📝 Executing delete_snippet');
+                        const workspace = getProjectOrWorkspace(this.config, args.workspace as string);
+                        return await this.snippetHandler.deleteSnippet({
+                            workspace,
+                            snippetId: args.snippetId as string
+                        });
+                    }
+
+                    case 'get_snippet_file': {
+                        if (!this.snippetHandler) {
+                            throw new McpError(ErrorCode.InvalidParams, 'Snippets are only available in Bitbucket Cloud');
+                        }
+                        logger.debug('📝 Executing get_snippet_file');
+                        const workspace = getProjectOrWorkspace(this.config, args.workspace as string);
+                        return await this.snippetHandler.getSnippetFile({
+                            workspace,
+                            snippetId: args.snippetId as string,
+                            filename: args.filename as string
+                        });
+                    }
+
+                    // Branch restrictions
+                    case 'list_branch_restrictions': {
+                        logger.debug('🔒 Executing list_branch_restrictions');
+                        const projectOrWorkspace = getProjectOrWorkspace(this.config, 
+                            this.config.isCloud ? args.workspace as string : args.project as string);
+                        return await this.branchRestrictionHandler.listBranchRestrictions({
+                            ...(this.config.isCloud ? { workspace: projectOrWorkspace } : { project: projectOrWorkspace }),
+                            repository: args.repository as string,
+                            kind: args.kind as string
+                        });
+                    }
+
+                    case 'create_branch_restriction': {
+                        logger.debug('🔒 Executing create_branch_restriction');
+                        const projectOrWorkspace = getProjectOrWorkspace(this.config, 
+                            this.config.isCloud ? args.workspace as string : args.project as string);
+                        return await this.branchRestrictionHandler.createBranchRestriction({
+                            ...(this.config.isCloud ? { workspace: projectOrWorkspace } : { project: projectOrWorkspace }),
+                            repository: args.repository as string,
+                            kind: args.kind as string,
+                            pattern: args.pattern as string,
+                            userIds: args.userIds as string[],
+                            groupIds: args.groupIds as string[]
+                        });
+                    }
+
+                    case 'get_branch_restriction': {
+                        logger.debug('🔒 Executing get_branch_restriction');
+                        const projectOrWorkspace = getProjectOrWorkspace(this.config, 
+                            this.config.isCloud ? args.workspace as string : args.project as string);
+                        return await this.branchRestrictionHandler.getBranchRestriction({
+                            ...(this.config.isCloud ? { workspace: projectOrWorkspace } : { project: projectOrWorkspace }),
+                            repository: args.repository as string,
+                            restrictionId: args.restrictionId as string
+                        });
+                    }
+
+                    case 'update_branch_restriction': {
+                        logger.debug('🔒 Executing update_branch_restriction');
+                        const projectOrWorkspace = getProjectOrWorkspace(this.config, 
+                            this.config.isCloud ? args.workspace as string : args.project as string);
+                        return await this.branchRestrictionHandler.updateBranchRestriction({
+                            ...(this.config.isCloud ? { workspace: projectOrWorkspace } : { project: projectOrWorkspace }),
+                            repository: args.repository as string,
+                            restrictionId: args.restrictionId as string,
+                            kind: args.kind as string,
+                            pattern: args.pattern as string,
+                            userIds: args.userIds as string[],
+                            groupIds: args.groupIds as string[]
+                        });
+                    }
+
+                    case 'delete_branch_restriction': {
+                        logger.debug('🔒 Executing delete_branch_restriction');
+                        const projectOrWorkspace = getProjectOrWorkspace(this.config, 
+                            this.config.isCloud ? args.workspace as string : args.project as string);
+                        return await this.branchRestrictionHandler.deleteBranchRestriction({
+                            ...(this.config.isCloud ? { workspace: projectOrWorkspace } : { project: projectOrWorkspace }),
+                            repository: args.repository as string,
+                            restrictionId: args.restrictionId as string
+                        });
+                    }
+
+                    // Downloads
+                    case 'list_downloads': {
+                        logger.debug('📦 Executing list_downloads');
+                        const projectOrWorkspace = getProjectOrWorkspace(this.config, 
+                            this.config.isCloud ? args.workspace as string : args.project as string);
+                        return await this.downloadHandler.listDownloads({
+                            ...(this.config.isCloud ? { workspace: projectOrWorkspace } : { project: projectOrWorkspace }),
+                            repository: args.repository as string
+                        });
+                    }
+
+                    case 'upload_download': {
+                        logger.debug('📦 Executing upload_download');
+                        const projectOrWorkspace = getProjectOrWorkspace(this.config, 
+                            this.config.isCloud ? args.workspace as string : args.project as string);
+                        return await this.downloadHandler.uploadDownload({
+                            ...(this.config.isCloud ? { workspace: projectOrWorkspace } : { project: projectOrWorkspace }),
+                            repository: args.repository as string,
+                            filename: args.filename as string,
+                            content: args.content as string
+                        });
+                    }
+
+                    case 'delete_download': {
+                        logger.debug('📦 Executing delete_download');
+                        const projectOrWorkspace = getProjectOrWorkspace(this.config, 
+                            this.config.isCloud ? args.workspace as string : args.project as string);
+                        return await this.downloadHandler.deleteDownload({
+                            ...(this.config.isCloud ? { workspace: projectOrWorkspace } : { project: projectOrWorkspace }),
+                            repository: args.repository as string,
+                            filename: args.filename as string
+                        });
+                    }
+
+                    // Fork functionality  
+                    case 'list_forks': {
+                        logger.debug('🍴 Executing list_forks');
+                        const projectOrWorkspace = getProjectOrWorkspace(this.config, 
+                            this.config.isCloud ? args.workspace as string : args.project as string);
+                        return await this.forkHandler.listForks({
+                            ...(this.config.isCloud ? { workspace: projectOrWorkspace } : { project: projectOrWorkspace }),
+                            repository: args.repository as string,
+                            limit: args.limit as number,
+                            start: args.start as number
+                        });
+                    }
+
+                    // Commit comments
+                    case 'list_commit_comments': {
+                        logger.debug('💬 Executing list_commit_comments');
+                        const projectOrWorkspace = getProjectOrWorkspace(this.config, 
+                            this.config.isCloud ? args.workspace as string : args.project as string);
+                        return await this.commitCommentHandler.listCommitComments({
+                            ...(this.config.isCloud ? { workspace: projectOrWorkspace } : { project: projectOrWorkspace }),
+                            repository: args.repository as string,
+                            commitId: args.commitId as string
+                        });
+                    }
+
+                    case 'create_commit_comment': {
+                        logger.debug('💬 Executing create_commit_comment');
+                        const projectOrWorkspace = getProjectOrWorkspace(this.config, 
+                            this.config.isCloud ? args.workspace as string : args.project as string);
+                        return await this.commitCommentHandler.createCommitComment({
+                            ...(this.config.isCloud ? { workspace: projectOrWorkspace } : { project: projectOrWorkspace }),
+                            repository: args.repository as string,
+                            commitId: args.commitId as string,
+                            content: args.content as string,
+                            filename: args.filename as string,
+                            lineNumber: args.lineNumber as number
+                        });
+                    }
+
+                    case 'update_commit_comment': {
+                        logger.debug('💬 Executing update_commit_comment');
+                        const projectOrWorkspace = getProjectOrWorkspace(this.config, 
+                            this.config.isCloud ? args.workspace as string : args.project as string);
+                        return await this.commitCommentHandler.updateCommitComment({
+                            ...(this.config.isCloud ? { workspace: projectOrWorkspace } : { project: projectOrWorkspace }),
+                            repository: args.repository as string,
+                            commitId: args.commitId as string,
+                            commentId: args.commentId as string,
+                            content: args.content as string
+                        });
+                    }
+
+                    case 'delete_commit_comment': {
+                        logger.debug('💬 Executing delete_commit_comment');
+                        const projectOrWorkspace = getProjectOrWorkspace(this.config, 
+                            this.config.isCloud ? args.workspace as string : args.project as string);
+                        return await this.commitCommentHandler.deleteCommitComment({
+                            ...(this.config.isCloud ? { workspace: projectOrWorkspace } : { project: projectOrWorkspace }),
+                            repository: args.repository as string,
+                            commitId: args.commitId as string,
+                            commentId: args.commentId as string
+                        });
+                    }
+
+                    // Deployments and environments (Cloud only)
+                    case 'list_deployments': {
+                        if (!this.deploymentHandler) {
+                            throw new McpError(ErrorCode.InvalidParams, 'Deployments are only available in Bitbucket Cloud');
+                        }
+                        logger.debug('🚀 Executing list_deployments');
+                        const workspace = getProjectOrWorkspace(this.config, args.workspace as string);
+                        return await this.deploymentHandler.listDeployments({
+                            workspace,
+                            repository: args.repository as string
+                        });
+                    }
+
+                    case 'get_deployment': {
+                        if (!this.deploymentHandler) {
+                            throw new McpError(ErrorCode.InvalidParams, 'Deployments are only available in Bitbucket Cloud');
+                        }
+                        logger.debug('🚀 Executing get_deployment');
+                        const workspace = getProjectOrWorkspace(this.config, args.workspace as string);
+                        return await this.deploymentHandler.getDeployment({
+                            workspace,
+                            repository: args.repository as string,
+                            deploymentId: args.deploymentId as string
+                        });
+                    }
+
+                    case 'list_environments': {
+                        if (!this.deploymentHandler) {
+                            throw new McpError(ErrorCode.InvalidParams, 'Environments are only available in Bitbucket Cloud');
+                        }
+                        logger.debug('🌍 Executing list_environments');
+                        const workspace = getProjectOrWorkspace(this.config, args.workspace as string);
+                        return await this.deploymentHandler.listEnvironments({
+                            workspace,
+                            repository: args.repository as string
+                        });
+                    }
+
+                    case 'create_environment': {
+                        if (!this.deploymentHandler) {
+                            throw new McpError(ErrorCode.InvalidParams, 'Environments are only available in Bitbucket Cloud');
+                        }
+                        logger.debug('🌍 Executing create_environment');
+                        const workspace = getProjectOrWorkspace(this.config, args.workspace as string);
+                        return await this.deploymentHandler.createEnvironment({
+                            workspace,
+                            repository: args.repository as string,
+                            name: args.name as string,
+                            type: args.type as string,
+                            slug: args.slug as string
+                        });
+                    }
+
+                    case 'update_environment': {
+                        if (!this.deploymentHandler) {
+                            throw new McpError(ErrorCode.InvalidParams, 'Environments are only available in Bitbucket Cloud');
+                        }
+                        logger.debug('🌍 Executing update_environment');
+                        const workspace = getProjectOrWorkspace(this.config, args.workspace as string);
+                        return await this.deploymentHandler.updateEnvironment({
+                            workspace,
+                            repository: args.repository as string,
+                            environmentUuid: args.environmentUuid as string,
+                            name: args.name as string,
+                            type: args.type as string
+                        });
+                    }
+
+                    case 'delete_environment': {
+                        if (!this.deploymentHandler) {
+                            throw new McpError(ErrorCode.InvalidParams, 'Environments are only available in Bitbucket Cloud');
+                        }
+                        logger.debug('🌍 Executing delete_environment');
+                        const workspace = getProjectOrWorkspace(this.config, args.workspace as string);
+                        return await this.deploymentHandler.deleteEnvironment({
+                            workspace,
+                            repository: args.repository as string,
+                            environmentUuid: args.environmentUuid as string
                         });
                     }
 

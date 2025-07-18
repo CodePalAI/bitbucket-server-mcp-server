@@ -1563,5 +1563,865 @@ export class BuildStatusHandler {
     }
 }
 
+// Snippets handler (Cloud only)
+export class SnippetHandler {
+    constructor(private api: AxiosInstance, private config: BitbucketConfig) {}
+
+    async listSnippets(params: any) {
+        if (!this.config.isCloud) {
+            throw new McpError(ErrorCode.InvalidParams, 'Snippets are only available in Bitbucket Cloud');
+        }
+
+        const workspace = params.workspace || this.config.defaultProject;
+        if (!workspace) {
+            throw new McpError(ErrorCode.InvalidParams, 'Workspace is required for Bitbucket Cloud');
+        }
+
+        const role = params.role || 'member';
+        const limit = params.limit || 10;
+
+        const response = await this.api.get(
+            `/snippets/${workspace}`,
+            { params: { role, pagelen: limit } }
+        );
+
+        return {
+            content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+        };
+    }
+
+    async getSnippet(params: any) {
+        if (!this.config.isCloud) {
+            throw new McpError(ErrorCode.InvalidParams, 'Snippets are only available in Bitbucket Cloud');
+        }
+
+        const workspace = params.workspace || this.config.defaultProject;
+        const { snippetId } = params;
+
+        if (!workspace || !snippetId) {
+            throw new McpError(ErrorCode.InvalidParams, 'Workspace and snippet ID are required');
+        }
+
+        const response = await this.api.get(`/snippets/${workspace}/${snippetId}`);
+
+        return {
+            content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+        };
+    }
+
+    async createSnippet(params: any) {
+        if (!this.config.isCloud) {
+            throw new McpError(ErrorCode.InvalidParams, 'Snippets are only available in Bitbucket Cloud');
+        }
+
+        const workspace = params.workspace || this.config.defaultProject;
+        const { title, isPrivate = true, files } = params;
+
+        if (!workspace || !title || !files) {
+            throw new McpError(ErrorCode.InvalidParams, 'Workspace, title, and files are required');
+        }
+
+        const snippetData = {
+            title,
+            is_private: isPrivate,
+            files: Object.entries(files).reduce((acc: any, [filename, content]) => {
+                acc[filename] = { content };
+                return acc;
+            }, {})
+        };
+
+        const response = await this.api.post(`/snippets/${workspace}`, snippetData);
+
+        return {
+            content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+        };
+    }
+
+    async updateSnippet(params: any) {
+        if (!this.config.isCloud) {
+            throw new McpError(ErrorCode.InvalidParams, 'Snippets are only available in Bitbucket Cloud');
+        }
+
+        const workspace = params.workspace || this.config.defaultProject;
+        const { snippetId, title, isPrivate, files } = params;
+
+        if (!workspace || !snippetId) {
+            throw new McpError(ErrorCode.InvalidParams, 'Workspace and snippet ID are required');
+        }
+
+        const updateData: any = {};
+        if (title) updateData.title = title;
+        if (isPrivate !== undefined) updateData.is_private = isPrivate;
+        if (files) {
+            updateData.files = Object.entries(files).reduce((acc: any, [filename, content]) => {
+                acc[filename] = { content };
+                return acc;
+            }, {});
+        }
+
+        const response = await this.api.put(`/snippets/${workspace}/${snippetId}`, updateData);
+
+        return {
+            content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+        };
+    }
+
+    async deleteSnippet(params: any) {
+        if (!this.config.isCloud) {
+            throw new McpError(ErrorCode.InvalidParams, 'Snippets are only available in Bitbucket Cloud');
+        }
+
+        const workspace = params.workspace || this.config.defaultProject;
+        const { snippetId } = params;
+
+        if (!workspace || !snippetId) {
+            throw new McpError(ErrorCode.InvalidParams, 'Workspace and snippet ID are required');
+        }
+
+        await this.api.delete(`/snippets/${workspace}/${snippetId}`);
+
+        return {
+            content: [{ type: 'text', text: `Snippet ${snippetId} deleted successfully` }]
+        };
+    }
+
+    async getSnippetFile(params: any) {
+        if (!this.config.isCloud) {
+            throw new McpError(ErrorCode.InvalidParams, 'Snippets are only available in Bitbucket Cloud');
+        }
+
+        const workspace = params.workspace || this.config.defaultProject;
+        const { snippetId, filename } = params;
+
+        if (!workspace || !snippetId || !filename) {
+            throw new McpError(ErrorCode.InvalidParams, 'Workspace, snippet ID, and filename are required');
+        }
+
+        const response = await this.api.get(`/snippets/${workspace}/${snippetId}/files/${filename}`);
+
+        return {
+            content: [{ type: 'text', text: response.data }]
+        };
+    }
+}
+
+// Branch restrictions handler
+export class BranchRestrictionHandler {
+    constructor(private api: AxiosInstance, private config: BitbucketConfig) {}
+
+    async listBranchRestrictions(params: any) {
+        const { repository, kind } = params;
+        
+        if (!repository) {
+            throw new McpError(ErrorCode.InvalidParams, 'Repository is required');
+        }
+
+        if (this.config.isCloud) {
+            const workspace = params.workspace || this.config.defaultProject;
+            if (!workspace) {
+                throw new McpError(ErrorCode.InvalidParams, 'Workspace is required for Bitbucket Cloud');
+            }
+
+            let url = `/repositories/${workspace}/${repository}/branch-restrictions`;
+            const queryParams: any = {};
+            if (kind) queryParams.kind = kind;
+
+            const response = await this.api.get(url, { params: queryParams });
+
+            return {
+                content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+            };
+        } else {
+            const project = params.project || this.config.defaultProject;
+            if (!project) {
+                throw new McpError(ErrorCode.InvalidParams, 'Project is required for Bitbucket Server');
+            }
+
+            const response = await this.api.get(`/projects/${project}/repos/${repository}/restrictions`);
+
+            return {
+                content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+            };
+        }
+    }
+
+    async createBranchRestriction(params: any) {
+        const { repository, kind, pattern, userIds, groupIds } = params;
+        
+        if (!repository || !kind || !pattern) {
+            throw new McpError(ErrorCode.InvalidParams, 'Repository, kind, and pattern are required');
+        }
+
+        if (this.config.isCloud) {
+            const workspace = params.workspace || this.config.defaultProject;
+            if (!workspace) {
+                throw new McpError(ErrorCode.InvalidParams, 'Workspace is required for Bitbucket Cloud');
+            }
+
+            const restrictionData: any = {
+                kind,
+                pattern
+            };
+
+            if (userIds?.length) {
+                restrictionData.users = userIds.map((id: string) => ({ uuid: id }));
+            }
+            if (groupIds?.length) {
+                restrictionData.groups = groupIds.map((id: string) => ({ uuid: id }));
+            }
+
+            const response = await this.api.post(
+                `/repositories/${workspace}/${repository}/branch-restrictions`,
+                restrictionData
+            );
+
+            return {
+                content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+            };
+        } else {
+            const project = params.project || this.config.defaultProject;
+            if (!project) {
+                throw new McpError(ErrorCode.InvalidParams, 'Project is required for Bitbucket Server');
+            }
+
+            const restrictionData: any = {
+                type: kind,
+                matcher: {
+                    id: pattern,
+                    type: { id: 'PATTERN' }
+                }
+            };
+
+            if (userIds?.length) {
+                restrictionData.users = userIds.map((id: string) => ({ name: id }));
+            }
+            if (groupIds?.length) {
+                restrictionData.groups = groupIds.map((id: string) => ({ name: id }));
+            }
+
+            const response = await this.api.post(
+                `/projects/${project}/repos/${repository}/restrictions`,
+                restrictionData
+            );
+
+            return {
+                content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+            };
+        }
+    }
+
+    async getBranchRestriction(params: any) {
+        const { repository, restrictionId } = params;
+        
+        if (!repository || !restrictionId) {
+            throw new McpError(ErrorCode.InvalidParams, 'Repository and restriction ID are required');
+        }
+
+        if (this.config.isCloud) {
+            const workspace = params.workspace || this.config.defaultProject;
+            if (!workspace) {
+                throw new McpError(ErrorCode.InvalidParams, 'Workspace is required for Bitbucket Cloud');
+            }
+
+            const response = await this.api.get(
+                `/repositories/${workspace}/${repository}/branch-restrictions/${restrictionId}`
+            );
+
+            return {
+                content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+            };
+        } else {
+            const project = params.project || this.config.defaultProject;
+            if (!project) {
+                throw new McpError(ErrorCode.InvalidParams, 'Project is required for Bitbucket Server');
+            }
+
+            const response = await this.api.get(
+                `/projects/${project}/repos/${repository}/restrictions/${restrictionId}`
+            );
+
+            return {
+                content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+            };
+        }
+    }
+
+    async updateBranchRestriction(params: any) {
+        const { repository, restrictionId, kind, pattern, userIds, groupIds } = params;
+        
+        if (!repository || !restrictionId) {
+            throw new McpError(ErrorCode.InvalidParams, 'Repository and restriction ID are required');
+        }
+
+        if (this.config.isCloud) {
+            const workspace = params.workspace || this.config.defaultProject;
+            if (!workspace) {
+                throw new McpError(ErrorCode.InvalidParams, 'Workspace is required for Bitbucket Cloud');
+            }
+
+            const updateData: any = {};
+            if (kind) updateData.kind = kind;
+            if (pattern) updateData.pattern = pattern;
+            if (userIds?.length) {
+                updateData.users = userIds.map((id: string) => ({ uuid: id }));
+            }
+            if (groupIds?.length) {
+                updateData.groups = groupIds.map((id: string) => ({ uuid: id }));
+            }
+
+            const response = await this.api.put(
+                `/repositories/${workspace}/${repository}/branch-restrictions/${restrictionId}`,
+                updateData
+            );
+
+            return {
+                content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+            };
+        } else {
+            const project = params.project || this.config.defaultProject;
+            if (!project) {
+                throw new McpError(ErrorCode.InvalidParams, 'Project is required for Bitbucket Server');
+            }
+
+            const updateData: any = {};
+            if (kind) updateData.type = kind;
+            if (pattern) {
+                updateData.matcher = {
+                    id: pattern,
+                    type: { id: 'PATTERN' }
+                };
+            }
+            if (userIds?.length) {
+                updateData.users = userIds.map((id: string) => ({ name: id }));
+            }
+            if (groupIds?.length) {
+                updateData.groups = groupIds.map((id: string) => ({ name: id }));
+            }
+
+            const response = await this.api.put(
+                `/projects/${project}/repos/${repository}/restrictions/${restrictionId}`,
+                updateData
+            );
+
+            return {
+                content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+            };
+        }
+    }
+
+    async deleteBranchRestriction(params: any) {
+        const { repository, restrictionId } = params;
+        
+        if (!repository || !restrictionId) {
+            throw new McpError(ErrorCode.InvalidParams, 'Repository and restriction ID are required');
+        }
+
+        if (this.config.isCloud) {
+            const workspace = params.workspace || this.config.defaultProject;
+            if (!workspace) {
+                throw new McpError(ErrorCode.InvalidParams, 'Workspace is required for Bitbucket Cloud');
+            }
+
+            await this.api.delete(
+                `/repositories/${workspace}/${repository}/branch-restrictions/${restrictionId}`
+            );
+
+            return {
+                content: [{ type: 'text', text: `Branch restriction ${restrictionId} deleted successfully` }]
+            };
+        } else {
+            const project = params.project || this.config.defaultProject;
+            if (!project) {
+                throw new McpError(ErrorCode.InvalidParams, 'Project is required for Bitbucket Server');
+            }
+
+            await this.api.delete(
+                `/projects/${project}/repos/${repository}/restrictions/${restrictionId}`
+            );
+
+            return {
+                content: [{ type: 'text', text: `Branch restriction ${restrictionId} deleted successfully` }]
+            };
+        }
+    }
+}
+
+// Downloads handler (Cloud and Server)
+export class DownloadHandler {
+    constructor(private api: AxiosInstance, private config: BitbucketConfig) {}
+
+    async listDownloads(params: any) {
+        const { repository } = params;
+        
+        if (!repository) {
+            throw new McpError(ErrorCode.InvalidParams, 'Repository is required');
+        }
+
+        if (this.config.isCloud) {
+            const workspace = params.workspace || this.config.defaultProject;
+            if (!workspace) {
+                throw new McpError(ErrorCode.InvalidParams, 'Workspace is required for Bitbucket Cloud');
+            }
+
+            const response = await this.api.get(`/repositories/${workspace}/${repository}/downloads`);
+            return {
+                content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+            };
+        } else {
+            const project = params.project || this.config.defaultProject;
+            if (!project) {
+                throw new McpError(ErrorCode.InvalidParams, 'Project is required for Bitbucket Server');
+            }
+
+            // Bitbucket Server uses artifacts API
+            const response = await this.api.get(`/projects/${project}/repos/${repository}/artifacts`);
+            return {
+                content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+            };
+        }
+    }
+
+    async uploadDownload(params: any) {
+        const { repository, filename, content } = params;
+        
+        if (!repository || !filename || !content) {
+            throw new McpError(ErrorCode.InvalidParams, 'Repository, filename, and content are required');
+        }
+
+        if (this.config.isCloud) {
+            const workspace = params.workspace || this.config.defaultProject;
+            if (!workspace) {
+                throw new McpError(ErrorCode.InvalidParams, 'Workspace is required for Bitbucket Cloud');
+            }
+
+            const formData = new FormData();
+            formData.append('files', content, filename);
+
+            const response = await this.api.post(
+                `/repositories/${workspace}/${repository}/downloads`,
+                formData,
+                { headers: { 'Content-Type': 'multipart/form-data' } }
+            );
+
+            return {
+                content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+            };
+        } else {
+            const project = params.project || this.config.defaultProject;
+            if (!project) {
+                throw new McpError(ErrorCode.InvalidParams, 'Project is required for Bitbucket Server');
+            }
+
+            // Server typically handles this differently, often through build artifacts
+            throw new McpError(ErrorCode.InvalidParams, 'File upload for Server requires build artifacts API');
+        }
+    }
+
+    async deleteDownload(params: any) {
+        const { repository, filename } = params;
+        
+        if (!repository || !filename) {
+            throw new McpError(ErrorCode.InvalidParams, 'Repository and filename are required');
+        }
+
+        if (this.config.isCloud) {
+            const workspace = params.workspace || this.config.defaultProject;
+            if (!workspace) {
+                throw new McpError(ErrorCode.InvalidParams, 'Workspace is required for Bitbucket Cloud');
+            }
+
+            await this.api.delete(`/repositories/${workspace}/${repository}/downloads/${filename}`);
+            return {
+                content: [{ type: 'text', text: `Download ${filename} deleted successfully` }]
+            };
+        } else {
+            const project = params.project || this.config.defaultProject;
+            if (!project) {
+                throw new McpError(ErrorCode.InvalidParams, 'Project is required for Bitbucket Server');
+            }
+
+            throw new McpError(ErrorCode.InvalidParams, 'File deletion not supported for Server downloads');
+        }
+    }
+}
+
+// Fork handler
+export class ForkHandler {
+    constructor(private api: AxiosInstance, private config: BitbucketConfig) {}
+
+    async forkRepository(params: any) {
+        const { repository, newName, isPrivate } = params;
+        
+        if (!repository) {
+            throw new McpError(ErrorCode.InvalidParams, 'Repository is required');
+        }
+
+        if (this.config.isCloud) {
+            const workspace = params.workspace || this.config.defaultProject;
+            const targetWorkspace = params.targetWorkspace || workspace;
+            
+            if (!workspace) {
+                throw new McpError(ErrorCode.InvalidParams, 'Workspace is required for Bitbucket Cloud');
+            }
+
+            const forkData: any = {};
+            if (newName) forkData.name = newName;
+            if (isPrivate !== undefined) forkData.is_private = isPrivate;
+            if (targetWorkspace !== workspace) forkData.workspace = { slug: targetWorkspace };
+
+            const response = await this.api.post(
+                `/repositories/${workspace}/${repository}/forks`,
+                forkData
+            );
+
+            return {
+                content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+            };
+        } else {
+            const project = params.project || this.config.defaultProject;
+            const targetProject = params.targetProject || project;
+            
+            if (!project) {
+                throw new McpError(ErrorCode.InvalidParams, 'Project is required for Bitbucket Server');
+            }
+
+            const forkData: any = {
+                name: newName || repository,
+                project: { key: targetProject }
+            };
+
+            const response = await this.api.post(
+                `/projects/${project}/repos/${repository}`,
+                forkData
+            );
+
+            return {
+                content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+            };
+        }
+    }
+
+    async listForks(params: any) {
+        const { repository } = params;
+        
+        if (!repository) {
+            throw new McpError(ErrorCode.InvalidParams, 'Repository is required');
+        }
+
+        if (this.config.isCloud) {
+            const workspace = params.workspace || this.config.defaultProject;
+            if (!workspace) {
+                throw new McpError(ErrorCode.InvalidParams, 'Workspace is required for Bitbucket Cloud');
+            }
+
+            const response = await this.api.get(`/repositories/${workspace}/${repository}/forks`);
+            return {
+                content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+            };
+        } else {
+            const project = params.project || this.config.defaultProject;
+            if (!project) {
+                throw new McpError(ErrorCode.InvalidParams, 'Project is required for Bitbucket Server');
+            }
+
+            const response = await this.api.get(`/projects/${project}/repos/${repository}/forks`);
+            return {
+                content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+            };
+        }
+    }
+}
+
+// Deployment/Environment handler (Cloud specific)
+export class DeploymentHandler {
+    constructor(private api: AxiosInstance, private config: BitbucketConfig) {}
+
+    async listDeployments(params: any) {
+        if (!this.config.isCloud) {
+            throw new McpError(ErrorCode.InvalidParams, 'Deployments are only available in Bitbucket Cloud');
+        }
+
+        const { repository } = params;
+        const workspace = params.workspace || this.config.defaultProject;
+        
+        if (!workspace || !repository) {
+            throw new McpError(ErrorCode.InvalidParams, 'Workspace and repository are required');
+        }
+
+        const response = await this.api.get(`/repositories/${workspace}/${repository}/deployments`);
+        return {
+            content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+        };
+    }
+
+    async getDeployment(params: any) {
+        if (!this.config.isCloud) {
+            throw new McpError(ErrorCode.InvalidParams, 'Deployments are only available in Bitbucket Cloud');
+        }
+
+        const { repository, deploymentId } = params;
+        const workspace = params.workspace || this.config.defaultProject;
+        
+        if (!workspace || !repository || !deploymentId) {
+            throw new McpError(ErrorCode.InvalidParams, 'Workspace, repository, and deployment ID are required');
+        }
+
+        const response = await this.api.get(`/repositories/${workspace}/${repository}/deployments/${deploymentId}`);
+        return {
+            content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+        };
+    }
+
+    async listEnvironments(params: any) {
+        if (!this.config.isCloud) {
+            throw new McpError(ErrorCode.InvalidParams, 'Environments are only available in Bitbucket Cloud');
+        }
+
+        const { repository } = params;
+        const workspace = params.workspace || this.config.defaultProject;
+        
+        if (!workspace || !repository) {
+            throw new McpError(ErrorCode.InvalidParams, 'Workspace and repository are required');
+        }
+
+        const response = await this.api.get(`/repositories/${workspace}/${repository}/environments`);
+        return {
+            content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+        };
+    }
+
+    async createEnvironment(params: any) {
+        if (!this.config.isCloud) {
+            throw new McpError(ErrorCode.InvalidParams, 'Environments are only available in Bitbucket Cloud');
+        }
+
+        const { repository, name, type, slug } = params;
+        const workspace = params.workspace || this.config.defaultProject;
+        
+        if (!workspace || !repository || !name || !type) {
+            throw new McpError(ErrorCode.InvalidParams, 'Workspace, repository, name, and type are required');
+        }
+
+        const environmentData = {
+            name,
+            type,
+            slug: slug || name.toLowerCase().replace(/\s+/g, '-')
+        };
+
+        const response = await this.api.post(
+            `/repositories/${workspace}/${repository}/environments`,
+            environmentData
+        );
+
+        return {
+            content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+        };
+    }
+
+    async updateEnvironment(params: any) {
+        if (!this.config.isCloud) {
+            throw new McpError(ErrorCode.InvalidParams, 'Environments are only available in Bitbucket Cloud');
+        }
+
+        const { repository, environmentUuid, name, type } = params;
+        const workspace = params.workspace || this.config.defaultProject;
+        
+        if (!workspace || !repository || !environmentUuid) {
+            throw new McpError(ErrorCode.InvalidParams, 'Workspace, repository, and environment UUID are required');
+        }
+
+        const updateData: any = {};
+        if (name) updateData.name = name;
+        if (type) updateData.type = type;
+
+        const response = await this.api.put(
+            `/repositories/${workspace}/${repository}/environments/${environmentUuid}`,
+            updateData
+        );
+
+        return {
+            content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+        };
+    }
+
+    async deleteEnvironment(params: any) {
+        if (!this.config.isCloud) {
+            throw new McpError(ErrorCode.InvalidParams, 'Environments are only available in Bitbucket Cloud');
+        }
+
+        const { repository, environmentUuid } = params;
+        const workspace = params.workspace || this.config.defaultProject;
+        
+        if (!workspace || !repository || !environmentUuid) {
+            throw new McpError(ErrorCode.InvalidParams, 'Workspace, repository, and environment UUID are required');
+        }
+
+        await this.api.delete(`/repositories/${workspace}/${repository}/environments/${environmentUuid}`);
+        return {
+            content: [{ type: 'text', text: `Environment ${environmentUuid} deleted successfully` }]
+        };
+    }
+}
+
+// Commit comments handler
+export class CommitCommentHandler {
+    constructor(private api: AxiosInstance, private config: BitbucketConfig) {}
+
+    async listCommitComments(params: any) {
+        const { repository, commitId } = params;
+        
+        if (!repository || !commitId) {
+            throw new McpError(ErrorCode.InvalidParams, 'Repository and commit ID are required');
+        }
+
+        if (this.config.isCloud) {
+            const workspace = params.workspace || this.config.defaultProject;
+            if (!workspace) {
+                throw new McpError(ErrorCode.InvalidParams, 'Workspace is required for Bitbucket Cloud');
+            }
+
+            const response = await this.api.get(`/repositories/${workspace}/${repository}/commit/${commitId}/comments`);
+            return {
+                content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+            };
+        } else {
+            const project = params.project || this.config.defaultProject;
+            if (!project) {
+                throw new McpError(ErrorCode.InvalidParams, 'Project is required for Bitbucket Server');
+            }
+
+            const response = await this.api.get(`/projects/${project}/repos/${repository}/commits/${commitId}/comments`);
+            return {
+                content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+            };
+        }
+    }
+
+    async createCommitComment(params: any) {
+        const { repository, commitId, content, lineNumber, filename } = params;
+        
+        if (!repository || !commitId || !content) {
+            throw new McpError(ErrorCode.InvalidParams, 'Repository, commit ID, and content are required');
+        }
+
+        if (this.config.isCloud) {
+            const workspace = params.workspace || this.config.defaultProject;
+            if (!workspace) {
+                throw new McpError(ErrorCode.InvalidParams, 'Workspace is required for Bitbucket Cloud');
+            }
+
+            const commentData: any = { content: { raw: content } };
+            if (filename) {
+                commentData.inline = {
+                    path: filename,
+                    to: lineNumber || 1
+                };
+            }
+
+            const response = await this.api.post(
+                `/repositories/${workspace}/${repository}/commit/${commitId}/comments`,
+                commentData
+            );
+
+            return {
+                content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+            };
+        } else {
+            const project = params.project || this.config.defaultProject;
+            if (!project) {
+                throw new McpError(ErrorCode.InvalidParams, 'Project is required for Bitbucket Server');
+            }
+
+            const commentData: any = { text: content };
+            if (filename && lineNumber) {
+                commentData.anchor = {
+                    path: filename,
+                    line: lineNumber,
+                    lineType: 'CONTEXT'
+                };
+            }
+
+            const response = await this.api.post(
+                `/projects/${project}/repos/${repository}/commits/${commitId}/comments`,
+                commentData
+            );
+
+            return {
+                content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+            };
+        }
+    }
+
+    async updateCommitComment(params: any) {
+        const { repository, commitId, commentId, content } = params;
+        
+        if (!repository || !commitId || !commentId || !content) {
+            throw new McpError(ErrorCode.InvalidParams, 'Repository, commit ID, comment ID, and content are required');
+        }
+
+        if (this.config.isCloud) {
+            const workspace = params.workspace || this.config.defaultProject;
+            if (!workspace) {
+                throw new McpError(ErrorCode.InvalidParams, 'Workspace is required for Bitbucket Cloud');
+            }
+
+            const updateData = { content: { raw: content } };
+            const response = await this.api.put(
+                `/repositories/${workspace}/${repository}/commit/${commitId}/comments/${commentId}`,
+                updateData
+            );
+
+            return {
+                content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+            };
+        } else {
+            const project = params.project || this.config.defaultProject;
+            if (!project) {
+                throw new McpError(ErrorCode.InvalidParams, 'Project is required for Bitbucket Server');
+            }
+
+            const updateData = { text: content };
+            const response = await this.api.put(
+                `/projects/${project}/repos/${repository}/commits/${commitId}/comments/${commentId}`,
+                updateData
+            );
+
+            return {
+                content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+            };
+        }
+    }
+
+    async deleteCommitComment(params: any) {
+        const { repository, commitId, commentId } = params;
+        
+        if (!repository || !commitId || !commentId) {
+            throw new McpError(ErrorCode.InvalidParams, 'Repository, commit ID, and comment ID are required');
+        }
+
+        if (this.config.isCloud) {
+            const workspace = params.workspace || this.config.defaultProject;
+            if (!workspace) {
+                throw new McpError(ErrorCode.InvalidParams, 'Workspace is required for Bitbucket Cloud');
+            }
+
+            await this.api.delete(`/repositories/${workspace}/${repository}/commit/${commitId}/comments/${commentId}`);
+            return {
+                content: [{ type: 'text', text: `Comment ${commentId} deleted successfully` }]
+            };
+        } else {
+            const project = params.project || this.config.defaultProject;
+            if (!project) {
+                throw new McpError(ErrorCode.InvalidParams, 'Project is required for Bitbucket Server');
+            }
+
+            await this.api.delete(`/projects/${project}/repos/${repository}/commits/${commitId}/comments/${commentId}`);
+            return {
+                content: [{ type: 'text', text: `Comment ${commentId} deleted successfully` }]
+            };
+        }
+    }
+}
+
 export {RepositoryHandler} from './repository-handler.js';
 export {PullRequestHandler} from './pull-request-handler.js';
