@@ -428,8 +428,7 @@ export class PullRequestHandler {
     }
 
     async getPullRequestCommits(params: PullRequestCommitsParams) {
-        const {repository, prId} = params;
-        const {limit = 25, start = 0} = params;
+        const {repository, prId, limit = 25, start = 0} = params;
 
         if (!repository || !prId) {
             throw new McpError(ErrorCode.InvalidParams, 'Repository and prId are required');
@@ -458,6 +457,54 @@ export class PullRequestHandler {
             const response = await this.api.get(
                 `/projects/${project}/repos/${repository}/pull-requests/${prId}/commits`,
                 {params: {limit, start}}
+            );
+
+            return {
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
+            };
+        }
+    }
+
+    async listPullRequests(params: any) {
+        const {repository, state, author, limit = 25, start = 0} = params;
+        if (!repository) {
+            throw new McpError(ErrorCode.InvalidParams, 'Repository is required');
+        }
+
+        if (this.config.isCloud) {
+            const workspace = params.workspace || this.config.defaultProject;
+            if (!workspace) {
+                throw new McpError(ErrorCode.InvalidParams, 'Workspace is required for Bitbucket Cloud');
+            }
+
+            const queryParams: any = {
+                pagelen: limit,
+                page: Math.floor(start / limit) + 1
+            };
+            if (state) queryParams.state = state;
+            if (author) queryParams.author = author;
+
+            const response = await this.api.get(
+                `/repositories/${workspace}/${repository}/pullrequests`,
+                {params: queryParams}
+            );
+
+            return {
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
+            };
+        } else {
+            const project = params.project || this.config.defaultProject;
+            if (!project) {
+                throw new McpError(ErrorCode.InvalidParams, 'Project is required for Bitbucket Server');
+            }
+
+            const queryParams: any = {limit, start};
+            if (state) queryParams.state = state;
+            if (author) queryParams.filterText = author;
+
+            const response = await this.api.get(
+                `/projects/${project}/repos/${repository}/pull-requests`,
+                {params: queryParams}
             );
 
             return {

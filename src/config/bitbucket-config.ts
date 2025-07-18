@@ -1,55 +1,53 @@
-import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
-import { BitbucketConfig } from '../types/interfaces.js';
-
-export function createBitbucketConfig(): BitbucketConfig {
-    const baseUrl = process.env.BITBUCKET_URL ?? '';
-    const config: BitbucketConfig = {
-        baseUrl,
-        token: process.env.BITBUCKET_TOKEN,
-        username: process.env.BITBUCKET_USERNAME,
-        password: process.env.BITBUCKET_PASSWORD,
-        defaultProject: process.env.BITBUCKET_DEFAULT_PROJECT,
-        isCloud: baseUrl.includes('bitbucket.org') || baseUrl.includes('api.bitbucket.org')
-    };
-
-    // Validate configuration
-    validateConfig(config);
-
-    return config;
-}
+import {BitbucketConfig} from '../types/interfaces.js';
 
 function validateConfig(config: BitbucketConfig): void {
     if (!config.baseUrl) {
-        throw new Error('BITBUCKET_URL is required');
+        throw new Error('BITBUCKET_URL environment variable is required');
     }
 
-    if (config.isCloud) {
-        // Bitbucket Cloud: Requires username + app password OR username + password
-        if (!config.username) {
-            throw new Error('BITBUCKET_USERNAME is required for Bitbucket Cloud');
-        }
-        if (!config.token && !config.password) {
-            throw new Error('Either BITBUCKET_TOKEN (App Password) or BITBUCKET_PASSWORD is required for Bitbucket Cloud');
-        }
-        if (config.token && config.password) {
-            console.warn('Both BITBUCKET_TOKEN and BITBUCKET_PASSWORD provided. Using App Password (BITBUCKET_TOKEN)');
-        }
-    } else {
-        // Bitbucket Server: Supports multiple auth methods
-        if (!config.token && !(config.username && config.password)) {
-            throw new Error('Either BITBUCKET_TOKEN (Personal Access Token) or BITBUCKET_USERNAME/PASSWORD is required for Bitbucket Server');
-        }
+    if (!config.username) {
+        throw new Error('BITBUCKET_USERNAME environment variable is required');
+    }
+
+    if (!config.token) {
+        throw new Error('BITBUCKET_TOKEN environment variable is required');
+    }
+
+    // Validate URL format
+    try {
+        new URL(config.baseUrl);
+    } catch (error) {
+        throw new Error('BITBUCKET_URL must be a valid URL');
     }
 }
 
-export function getProjectOrWorkspace(config: BitbucketConfig, providedValue?: string): string {
-    const value = providedValue || config.defaultProject;
-    if (!value) {
-        const type = config.isCloud ? 'workspace' : 'project';
-        throw new McpError(
-            ErrorCode.InvalidParams,
-            `${type} must be provided either as a parameter or through BITBUCKET_DEFAULT_PROJECT environment variable`
+export function createBitbucketConfig(): BitbucketConfig {
+    const url = process.env.BITBUCKET_URL;
+    if (!url) {
+        throw new Error('BITBUCKET_URL environment variable is required');
+    }
+
+    const config: BitbucketConfig = {
+        baseUrl: url,
+        username: process.env.BITBUCKET_USERNAME || '',
+        token: process.env.BITBUCKET_TOKEN || '',
+        defaultProject: process.env.BITBUCKET_DEFAULT_PROJECT || '',
+        isCloud: url.includes('bitbucket.org') || url.includes('api.bitbucket.org')
+    };
+
+    validateConfig(config);
+    return config;
+}
+
+export {validateConfig};
+
+export function getProjectOrWorkspace(config: BitbucketConfig, provided?: string): string {
+    const result = provided || config.defaultProject;
+    if (!result) {
+        throw new Error(config.isCloud
+            ? 'Workspace is required. Provide it in the call or set BITBUCKET_DEFAULT_PROJECT environment variable.'
+            : 'Project is required. Provide it in the call or set BITBUCKET_DEFAULT_PROJECT environment variable.'
         );
     }
-    return value;
+    return result;
 } 

@@ -236,6 +236,64 @@ export class RepositoryHandler {
         }
     }
 
+    async updateRepository(workspaceOrProject: string, repository: string, input: CreateRepositoryInput) {
+        if (!repository) {
+            throw new McpError(ErrorCode.InvalidParams, 'Repository is required');
+        }
+
+        if (this.config.isCloud) {
+            const repoData: any = {};
+            if (input.name) repoData.name = input.name;
+            if (input.description !== undefined) repoData.description = input.description;
+            if (input.isPrivate !== undefined) repoData.is_private = input.isPrivate;
+            if (input.forkPolicy) repoData.fork_policy = input.forkPolicy;
+            if (input.language) repoData.language = input.language;
+            if (input.hasIssues !== undefined) repoData.has_issues = input.hasIssues;
+            if (input.hasWiki !== undefined) repoData.has_wiki = input.hasWiki;
+
+            const response = await this.api.put(
+                `/repositories/${workspaceOrProject}/${repository}`,
+                repoData
+            );
+
+            return {
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
+            };
+        } else {
+            const repoData: any = {};
+            if (input.name) repoData.name = input.name;
+            if (input.description !== undefined) repoData.description = input.description;
+            if (input.isPrivate !== undefined) repoData.public = !input.isPrivate;
+            if (input.forkPolicy) repoData.forkPolicy = input.forkPolicy;
+
+            const response = await this.api.put(
+                `/projects/${workspaceOrProject}/repos/${repository}`,
+                repoData
+            );
+
+            return {
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
+            };
+        }
+    }
+
+    async forkRepositoryWithParams(params: any) {
+        const {sourceWorkspace, repository, name, description, isPrivate} = params;
+        const key = this.config.isCloud ? 'workspace' : 'project';
+        const targetWorkspace = params[key];
+
+        return await this.forkRepository(
+            {
+                [this.config.isCloud ? 'workspace' : 'project']: sourceWorkspace,
+                repository
+            },
+            {
+                [this.config.isCloud ? 'forkWorkspace' : 'forkProject']: targetWorkspace,
+                name
+            }
+        );
+    }
+
     async forkRepository(sourceParams: RepositoryParams, forkOptions: {
         forkWorkspace?: string;
         forkProject?: string;

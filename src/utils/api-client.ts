@@ -20,12 +20,11 @@ const logger = winston.createLogger({
 });
 
 export function createApiClient(config: BitbucketConfig): AxiosInstance {
-    // Configuration de l'instance Axios based on Bitbucket type
     const apiPath = config.isCloud ? '/2.0' : '/rest/api/1.0';
     const baseURL = config.isCloud ? 'https://api.bitbucket.org/2.0' : `${config.baseUrl}${apiPath}`;
 
     // Setup authentication based on platform and available credentials
-    let authConfig: { headers?: any; auth?: any } = {headers: {}, auth: undefined};
+    const authConfig: { headers?: any; auth?: any } = {headers: {}, auth: undefined};
 
     // Bitbucket Server or Cloud: Support Bearer tokens
     if (config.token) {
@@ -58,7 +57,7 @@ export function createApiClient(config: BitbucketConfig): AxiosInstance {
                 params: config.params,
                 data: config.data ? (typeof config.data === 'string' ? config.data : JSON.stringify(config.data)) : undefined
             };
-            
+
             logger.info('🚀 HTTP Request', logData);
             return config;
         },
@@ -77,10 +76,10 @@ export function createApiClient(config: BitbucketConfig): AxiosInstance {
                 url: response.config.url,
                 method: response.config.method?.toUpperCase(),
                 responseSize: JSON.stringify(response.data).length,
-                responseData: process.env.DEBUG === 'verbose' ? response.data : 
+                responseData: process.env.DEBUG === 'verbose' ? response.data :
                     (typeof response.data === 'object' ? `[${Object.keys(response.data).length} keys]` : '[data]')
             };
-            
+
             logger.info('✅ HTTP Response', logData);
             return response;
         },
@@ -99,7 +98,7 @@ export function createApiClient(config: BitbucketConfig): AxiosInstance {
                     Authorization: error.config?.headers?.Authorization ? '[REDACTED]' : undefined
                 }
             };
-            
+
             logger.error('❌ HTTP Response Error', logData);
             return Promise.reject(error);
         }

@@ -53,7 +53,7 @@ Current config: hasToken=${!!config.token}, username=${config.username || 'NOT S
 
         if (error.response?.status === 400) {
             let troubleshooting = '\n\n🔍 Troubleshooting 400 Bad Request:\n';
-            
+
             if (config.isCloud) {
                 troubleshooting += `
 - Check if workspace name is correct: ${config.defaultProject}
@@ -79,7 +79,7 @@ Current config: hasToken=${!!config.token}, username=${config.username || 'NOT S
 
         if (error.response?.status === 404) {
             let troubleshooting = '\n\n🔍 Troubleshooting 404 Not Found:\n';
-            
+
             if (config.isCloud) {
                 troubleshooting += `
 - Workspace '${config.defaultProject}' might not exist or you don't have access
