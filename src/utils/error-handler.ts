@@ -8,7 +8,27 @@ export function handleApiError(error: any, config: BitbucketConfig): never {
             ? error.response?.data?.error?.message || error.response?.data?.message || error.message
             : error.response?.data.message || error.message;
 
-        // Provide specific guidance for 401 errors
+        // Detailed error information for debugging
+        const detailedError = {
+            status: error.response?.status,
+            statusText: error.response?.statusText,
+            url: error.config?.url,
+            method: error.config?.method?.toUpperCase(),
+            fullURL: error.config ? `${error.config.baseURL}${error.config.url}` : 'unknown',
+            requestData: error.config?.data,
+            responseData: error.response?.data,
+            errorCode: error.code,
+            message: errorMessage,
+            headers: {
+                request: error.config?.headers,
+                response: error.response?.headers
+            }
+        };
+
+        // Log the detailed error for debugging
+        console.error('🚨 Detailed API Error:', JSON.stringify(detailedError, null, 2));
+
+        // Provide specific guidance for common errors
         if (error.response?.status === 401) {
             const authGuidance = config.isCloud
                 ? `For Bitbucket Cloud, ensure you have:
@@ -27,13 +47,64 @@ Current config: hasToken=${!!config.token}, username=${config.username || 'NOT S
 
             throw new McpError(
                 ErrorCode.InternalError,
-                `Authentication failed (401): ${errorMessage}\n\n${authGuidance}`
+                `Authentication failed (401): ${errorMessage}\n\n${authGuidance}\n\nDetailed error: ${JSON.stringify(detailedError, null, 2)}`
+            );
+        }
+
+        if (error.response?.status === 400) {
+            let troubleshooting = '\n\n🔍 Troubleshooting 400 Bad Request:\n';
+            
+            if (config.isCloud) {
+                troubleshooting += `
+- Check if workspace name is correct: ${config.defaultProject}
+- Verify repository exists and you have access
+- Check if source and target branches exist
+- Ensure branch names don't have invalid characters
+- For PR creation: source and target branches must be different
+`;
+            } else {
+                troubleshooting += `
+- Check if project key is correct: ${config.defaultProject}
+- Verify repository exists and you have access
+- Check if source and target branches exist
+- Ensure branch names follow Bitbucket Server naming rules
+`;
+            }
+
+            throw new McpError(
+                ErrorCode.InternalError,
+                `Bad Request (400): ${errorMessage}${troubleshooting}\n\nFull error details: ${JSON.stringify(detailedError, null, 2)}`
+            );
+        }
+
+        if (error.response?.status === 404) {
+            let troubleshooting = '\n\n🔍 Troubleshooting 404 Not Found:\n';
+            
+            if (config.isCloud) {
+                troubleshooting += `
+- Workspace '${config.defaultProject}' might not exist or you don't have access
+- Repository might not exist in this workspace
+- Pull request ID might be incorrect
+- Check the full URL: ${detailedError.fullURL}
+`;
+            } else {
+                troubleshooting += `
+- Project '${config.defaultProject}' might not exist or you don't have access
+- Repository might not exist in this project
+- Check the Bitbucket Server URL is correct: ${config.baseUrl}
+- Check the full URL: ${detailedError.fullURL}
+`;
+            }
+
+            throw new McpError(
+                ErrorCode.InternalError,
+                `Not Found (404): ${errorMessage}${troubleshooting}\n\nFull error details: ${JSON.stringify(detailedError, null, 2)}`
             );
         }
 
         throw new McpError(
             ErrorCode.InternalError,
-            `Bitbucket API error: ${errorMessage}`
+            `Bitbucket API error (${error.response?.status || 'unknown'}): ${errorMessage}\n\nFull error details: ${JSON.stringify(detailedError, null, 2)}`
         );
     }
     throw error;

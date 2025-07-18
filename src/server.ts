@@ -8,7 +8,7 @@ import {createApiClient} from './utils/api-client.js';
 import {handleApiError} from './utils/error-handler.js';
 import {createToolDefinitions} from './tools/tool-definitions.js';
 import {BranchHandler, CommitHandler, PullRequestHandler, RepositoryHandler} from './handlers/handlers.js';
-import {BitbucketConfig, BranchParams, CommitParams, PullRequestInput, PullRequestParams} from './types/interfaces.js';
+import {BitbucketConfig, BranchParams, CommitParams, PullRequestInput, PullRequestParams, FileParams} from './types/interfaces.js';
 
 // Configuration du logger - only log to file and stderr, never stdout to avoid stdio conflicts
 const logger = winston.createLogger({
@@ -32,7 +32,7 @@ export class BitbucketServer {
     private readonly server: Server;
     private readonly config: BitbucketConfig;
     private readonly api: any;
-
+    
     // Handlers
     private readonly repositoryHandler: RepositoryHandler;
     private readonly pullRequestHandler: PullRequestHandler;
@@ -62,7 +62,7 @@ export class BitbucketServer {
         this.branchHandler = new BranchHandler(this.api, this.config);
         this.commitHandler = new CommitHandler(this.api, this.config);
 
-        logger.info(`Initialized for ${this.config.isCloud ? 'Bitbucket Cloud' : 'Bitbucket Server'}`, {
+        logger.info(`🔧 Initialized for ${this.config.isCloud ? 'Bitbucket Cloud' : 'Bitbucket Server'}`, {
             baseUrl: this.config.baseUrl,
             authMethod: this.config.isCloud
                 ? (this.config.token ? 'Basic Auth (App Password)' : 'Basic Auth (Username/Password)')
@@ -76,7 +76,7 @@ export class BitbucketServer {
 
         // Improved error handling for MCP errors
         this.server.onerror = (error) => {
-            logger.error('[MCP Error]', {
+            logger.error('❌ [MCP Error]', {
                 message: error.message,
                 stack: error.stack,
                 name: error.name
@@ -90,7 +90,7 @@ export class BitbucketServer {
 
             // Set up graceful shutdown
             const cleanup = () => {
-                logger.info('Shutting down Bitbucket MCP server...');
+                logger.info('🛑 Shutting down Bitbucket MCP server...');
                 process.exit(0);
             };
 
@@ -101,23 +101,23 @@ export class BitbucketServer {
 
             // Handle uncaught exceptions
             process.on('uncaughtException', (error) => {
-                logger.error('Uncaught exception:', error);
+                logger.error('💥 Uncaught exception:', error);
                 process.exit(1);
             });
 
             process.on('unhandledRejection', (reason, promise) => {
-                logger.error('Unhandled rejection at:', promise, 'reason:', reason);
+                logger.error('💥 Unhandled rejection at:', promise, 'reason:', reason);
                 process.exit(1);
             });
 
             await this.server.connect(transport);
-            logger.info('Bitbucket MCP server running on stdio');
+            logger.info('🚀 Bitbucket MCP server running on stdio');
 
             // Keep the process alive
             process.stdin.resume();
 
         } catch (error) {
-            logger.error('Failed to start server:', error);
+            logger.error('💥 Failed to start server:', error);
             process.exit(1);
         }
     }
@@ -136,18 +136,48 @@ export class BitbucketServer {
     }
 
     private setupToolHandlers() {
-        this.server.setRequestHandler(ListToolsRequestSchema, async () => ({
-            tools: createToolDefinitions(this.config)
-        }));
+        const toolDefinitions = createToolDefinitions(this.config);
+        
+        logger.info('🛠️ Registering tools', {
+            toolCount: toolDefinitions.length,
+            toolNames: toolDefinitions.map(t => t.name)
+        });
+
+        this.server.setRequestHandler(ListToolsRequestSchema, async () => {
+            logger.debug('📋 List tools requested');
+            return { tools: toolDefinitions };
+        });
 
         this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
-            try {
-                logger.info(`Called tool: ${request.params.name}`, {arguments: request.params.arguments});
-                const args = request.params.arguments ?? {};
+            const toolName = request.params.name;
+            const rawArgs = request.params.arguments ?? {};
+            
+            logger.info(`🔧 Called tool: ${toolName}`, {
+                arguments: rawArgs,
+                toolName
+            });
 
-                switch (request.params.name) {
+            // Clean up parameter names - remove trailing underscores and fix common issues
+            const args: any = {};
+            Object.keys(rawArgs).forEach(key => {
+                const cleanKey = key.endsWith('_') ? key.slice(0, -1) : key;
+                const finalKey = cleanKey === 'workspaceOpt' ? 'workspace' : cleanKey;
+                args[finalKey] = (rawArgs as any)[key];
+            });
+
+            logger.debug('🔍 Processed parameters', {
+                toolName,
+                rawArgs,
+                processedArgs: args,
+                parameterCount: Object.keys(args).length
+            });
+
+            try {
+
+                switch (toolName) {
                     // Repository Operations
                     case 'list_projects': {
+                        logger.debug('📂 Executing list_projects');
                         return await this.repositoryHandler.listProjects({
                             limit: args.limit as number,
                             start: args.start as number
@@ -155,6 +185,7 @@ export class BitbucketServer {
                     }
 
                     case 'list_repositories': {
+                        logger.debug('📂 Executing list_repositories');
                         return await this.repositoryHandler.listRepositories({
                             [this.config.isCloud ? 'workspace' : 'project']: args[this.config.isCloud ? 'workspace' : 'project'] as string,
                             limit: args.limit as number,
@@ -163,9 +194,17 @@ export class BitbucketServer {
                     }
 
                     case 'create_repository': {
+                        logger.debug('📂 Executing create_repository');
                         const key = this.config.isCloud ? 'workspace' : 'project';
+                        const resolvedProject = getProjectOrWorkspace(this.config, args[key] as string);
+                        logger.debug('🎯 Resolved project/workspace', {
+                            key,
+                            provided: args[key],
+                            resolved: resolvedProject,
+                            default: this.config.defaultProject
+                        });
                         return await this.repositoryHandler.createRepository(
-                            getProjectOrWorkspace(this.config, args[key] as string),
+                            resolvedProject,
                             {
                                 name: args.name as string,
                                 description: args.description as string,
@@ -180,21 +219,40 @@ export class BitbucketServer {
 
                     // Pull Request Operations
                     case 'create_pull_request': {
+                        logger.debug('🔀 Executing create_pull_request');
                         if (!this.isPullRequestInput(args)) {
+                            logger.error('❌ Invalid pull request input parameters', {args});
                             throw new McpError(
                                 ErrorCode.InvalidParams,
                                 'Invalid pull request input parameters'
                             );
                         }
                         const key = this.config.isCloud ? 'workspace' : 'project';
-                        const createArgs = {...args, [key]: getProjectOrWorkspace(this.config, args[key] as string)};
+                        const resolvedProject = getProjectOrWorkspace(this.config, args[key] as string);
+                        logger.debug('🎯 Resolved project/workspace for PR', {
+                            key,
+                            provided: args[key],
+                            resolved: resolvedProject,
+                            default: this.config.defaultProject,
+                            sourceBranch: args.sourceBranch,
+                            targetBranch: args.targetBranch
+                        });
+                        const createArgs = {...args, [key]: resolvedProject};
                         return await this.pullRequestHandler.createPullRequest(createArgs);
                     }
 
                     case 'get_pull_request': {
+                        logger.debug('🔀 Executing get_pull_request');
                         const key = this.config.isCloud ? 'workspace' : 'project';
+                        const resolvedProject = getProjectOrWorkspace(this.config, args[key] as string);
+                        logger.debug('🎯 Resolved project/workspace for get PR', {
+                            key,
+                            provided: args[key],
+                            resolved: resolvedProject,
+                            prId: args.prId
+                        });
                         const getPrParams: PullRequestParams = {
-                            [key]: getProjectOrWorkspace(this.config, args[key] as string),
+                            [key]: resolvedProject,
                             repository: args.repository as string,
                             prId: args.prId as number
                         };
@@ -202,9 +260,11 @@ export class BitbucketServer {
                     }
 
                     case 'merge_pull_request': {
+                        logger.debug('🔀 Executing merge_pull_request');
                         const key = this.config.isCloud ? 'workspace' : 'project';
+                        const resolvedProject = getProjectOrWorkspace(this.config, args[key] as string);
                         const mergePrParams: PullRequestParams = {
-                            [key]: getProjectOrWorkspace(this.config, args[key] as string),
+                            [key]: resolvedProject,
                             repository: args.repository as string,
                             prId: args.prId as number
                         };
@@ -215,9 +275,11 @@ export class BitbucketServer {
                     }
 
                     case 'add_comment': {
+                        logger.debug('💬 Executing add_comment');
                         const key = this.config.isCloud ? 'workspace' : 'project';
+                        const resolvedProject = getProjectOrWorkspace(this.config, args[key] as string);
                         const commentPrParams: PullRequestParams = {
-                            [key]: getProjectOrWorkspace(this.config, args[key] as string),
+                            [key]: resolvedProject,
                             repository: args.repository as string,
                             prId: args.prId as number
                         };
@@ -229,9 +291,11 @@ export class BitbucketServer {
 
                     // Branch Operations
                     case 'list_branches': {
+                        logger.debug('🌿 Executing list_branches');
                         const key = this.config.isCloud ? 'workspace' : 'project';
+                        const resolvedProject = getProjectOrWorkspace(this.config, args[key] as string);
                         const branchParams: BranchParams = {
-                            [key]: getProjectOrWorkspace(this.config, args[key] as string),
+                            [key]: resolvedProject,
                             repository: args.repository as string
                         };
                         return await this.branchHandler.listBranches(branchParams, {
@@ -241,9 +305,11 @@ export class BitbucketServer {
                     }
 
                     case 'create_branch': {
+                        logger.debug('🌿 Executing create_branch');
                         const key = this.config.isCloud ? 'workspace' : 'project';
+                        const resolvedProject = getProjectOrWorkspace(this.config, args[key] as string);
                         const branchParams: BranchParams = {
-                            [key]: getProjectOrWorkspace(this.config, args[key] as string),
+                            [key]: resolvedProject,
                             repository: args.repository as string,
                             branchName: args.branchName as string
                         };
@@ -252,9 +318,11 @@ export class BitbucketServer {
 
                     // Commit Operations
                     case 'list_commits': {
+                        logger.debug('📝 Executing list_commits');
                         const key = this.config.isCloud ? 'workspace' : 'project';
+                        const resolvedProject = getProjectOrWorkspace(this.config, args[key] as string);
                         const commitParams: CommitParams = {
-                            [key]: getProjectOrWorkspace(this.config, args[key] as string),
+                            [key]: resolvedProject,
                             repository: args.repository as string,
                             branch: args.branch as string
                         };
@@ -265,27 +333,151 @@ export class BitbucketServer {
                     }
 
                     case 'get_commit': {
+                        logger.debug('📝 Executing get_commit');
                         const key = this.config.isCloud ? 'workspace' : 'project';
+                        const resolvedProject = getProjectOrWorkspace(this.config, args[key] as string);
                         const commitParams: CommitParams = {
-                            [key]: getProjectOrWorkspace(this.config, args[key] as string),
+                            [key]: resolvedProject,
                             repository: args.repository as string,
                             commitId: args.commitId as string
                         };
                         return await this.commitHandler.getCommit(commitParams);
                     }
 
+                    // File Operations - ADD MISSING HANDLERS
+                    case 'get_file_content': {
+                        logger.debug('📄 Executing get_file_content');
+                        const key = this.config.isCloud ? 'workspace' : 'project';
+                        const resolvedProject = getProjectOrWorkspace(this.config, args[key] as string);
+                        const fileParams: FileParams = {
+                            [key]: resolvedProject,
+                            repository: args.repository as string,
+                            path: args.path as string,
+                            branch: args.branch as string,
+                            commitId: args.commitId as string
+                        };
+                        return await this.getFileContent(fileParams);
+                    }
+
+                    case 'list_directory': {
+                        logger.debug('📁 Executing list_directory');
+                        const key = this.config.isCloud ? 'workspace' : 'project';
+                        const resolvedProject = getProjectOrWorkspace(this.config, args[key] as string);
+                        const fileParams: FileParams = {
+                            [key]: resolvedProject,
+                            repository: args.repository as string,
+                            path: args.path as string,
+                            branch: args.branch as string,
+                            commitId: args.commitId as string
+                        };
+                        return await this.listDirectory(fileParams);
+                    }
+
                     // Add more cases for other tools...
 
                     default:
+                        logger.error('❌ Unknown tool requested', {toolName, availableTools: toolDefinitions.map(t => t.name)});
                         throw new McpError(
                             ErrorCode.MethodNotFound,
-                            `Unknown tool: ${request.params.name}`
+                            `Unknown tool: ${toolName}`
                         );
                 }
             } catch (error) {
-                logger.error('Tool execution error', {error});
+                logger.error('💥 Tool execution error', {
+                    toolName,
+                    error: error instanceof Error ? {
+                        message: error.message,
+                        stack: error.stack,
+                        name: error.name
+                    } : error,
+                    arguments: args
+                });
                 handleApiError(error, this.config);
             }
         });
+    }
+
+    // Add missing file operation methods
+    private async getFileContent(params: FileParams) {
+        const {repository, path} = params;
+
+        if (!repository || !path) {
+            throw new McpError(ErrorCode.InvalidParams, 'Repository and path are required');
+        }
+
+        logger.debug('📄 Getting file content', {params});
+
+        if (this.config.isCloud) {
+            const workspace = params.workspace || this.config.defaultProject;
+            if (!workspace) {
+                throw new McpError(ErrorCode.InvalidParams, 'Workspace is required for Bitbucket Cloud');
+            }
+
+            const ref = params.commitId || params.branch || 'HEAD';
+            const response = await this.api.get(
+                `/repositories/${workspace}/${repository}/src/${ref}/${path}`
+            );
+
+            return {
+                content: [{type: 'text', text: response.data}]
+            };
+        } else {
+            const project = params.project || this.config.defaultProject;
+            if (!project) {
+                throw new McpError(ErrorCode.InvalidParams, 'Project is required for Bitbucket Server');
+            }
+
+            const ref = params.commitId || params.branch || 'HEAD';
+            const response = await this.api.get(
+                `/projects/${project}/repos/${repository}/browse/${path}`,
+                {params: {at: ref, raw: true}}
+            );
+
+            return {
+                content: [{type: 'text', text: response.data}]
+            };
+        }
+    }
+
+    private async listDirectory(params: FileParams) {
+        const {repository} = params;
+        const dirPath = params.path || '';
+
+        if (!repository) {
+            throw new McpError(ErrorCode.InvalidParams, 'Repository is required');
+        }
+
+        logger.debug('📁 Listing directory', {params});
+
+        if (this.config.isCloud) {
+            const workspace = params.workspace || this.config.defaultProject;
+            if (!workspace) {
+                throw new McpError(ErrorCode.InvalidParams, 'Workspace is required for Bitbucket Cloud');
+            }
+
+            const ref = params.commitId || params.branch || 'HEAD';
+            const response = await this.api.get(
+                `/repositories/${workspace}/${repository}/src/${ref}/${dirPath}`
+            );
+
+            return {
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
+            };
+        } else {
+            const project = params.project || this.config.defaultProject;
+            if (!project) {
+                throw new McpError(ErrorCode.InvalidParams, 'Project is required for Bitbucket Server');
+            }
+
+            const ref = params.commitId || params.branch || 'HEAD';
+            const response = await this.api.get(
+                `/projects/${project}/repos/${repository}/browse/${dirPath}`,
+                {params: {at: ref}}
+            );
+
+            return {
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
+            };
+        }
     }
 } 

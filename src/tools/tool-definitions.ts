@@ -91,9 +91,40 @@ export function createToolDefinitions(config: BitbucketConfig) {
                 required: ['repository', 'prId']
             }
         },
-        // Continue with all other tool definitions...
-        // For brevity, I'll create a few more key ones
-
+        {
+            name: 'merge_pull_request',
+            description: 'Merge an approved pull request into the target branch. Use this when a PR has been reviewed, approved, and is ready to be integrated.',
+            inputSchema: {
+                type: 'object',
+                properties: {
+                    ...projectOrWorkspaceProperty,
+                    repository: {type: 'string', description: 'Repository slug containing the pull request.'},
+                    prId: {type: 'number', description: 'Pull request ID to merge.'},
+                    message: {type: 'string', description: 'Custom merge commit message.'},
+                    strategy: {
+                        type: 'string',
+                        enum: ['merge-commit', 'squash', 'fast-forward'],
+                        description: 'Merge strategy to use.'
+                    }
+                },
+                required: ['repository', 'prId']
+            }
+        },
+        {
+            name: 'add_comment',
+            description: 'Add a comment to a pull request for code review, feedback, questions, or discussion.',
+            inputSchema: {
+                type: 'object',
+                properties: {
+                    ...projectOrWorkspaceProperty,
+                    repository: {type: 'string', description: 'Repository slug containing the pull request.'},
+                    prId: {type: 'number', description: 'Pull request ID to comment on.'},
+                    text: {type: 'string', description: 'Comment text content. Supports Markdown formatting.'},
+                    parentId: {type: 'number', description: 'ID of parent comment to reply to.'}
+                },
+                required: ['repository', 'prId', 'text']
+            }
+        },
         {
             name: 'list_branches',
             description: 'List all branches in a repository. Use this to discover available branches, understand branch structure, or find specific branches for checkout, merging, or other Git operations. Returns branch names, commit IDs, and branch metadata.',
@@ -129,6 +160,34 @@ export function createToolDefinitions(config: BitbucketConfig) {
             }
         },
         {
+            name: 'list_commits',
+            description: 'List commits in a repository with optional filtering by branch, author, or time range.',
+            inputSchema: {
+                type: 'object',
+                properties: {
+                    ...projectOrWorkspaceProperty,
+                    repository: {type: 'string', description: 'Repository slug to list commits from.'},
+                    branch: {type: 'string', description: 'Branch name to list commits from (default: default branch).'},
+                    limit: {type: 'number', description: 'Number of commits to return (default: 25, max: 100)'},
+                    start: {type: 'number', description: 'Start index for pagination (default: 0)'}
+                },
+                required: ['repository']
+            }
+        },
+        {
+            name: 'get_commit',
+            description: 'Get detailed information about a specific commit including changes, author, message, and affected files.',
+            inputSchema: {
+                type: 'object',
+                properties: {
+                    ...projectOrWorkspaceProperty,
+                    repository: {type: 'string', description: 'Repository slug containing the commit.'},
+                    commitId: {type: 'string', description: 'Commit hash or ID to retrieve details for.'}
+                },
+                required: ['repository', 'commitId']
+            }
+        },
+        {
             name: 'get_file_content',
             description: 'Retrieve the content of a specific file from a repository at a given branch or commit. Use this to read configuration files, source code, documentation, or any repository file for analysis or processing.',
             inputSchema: {
@@ -149,7 +208,39 @@ export function createToolDefinitions(config: BitbucketConfig) {
                 required: ['repository', 'path']
             }
         },
-        // Add more tool definitions here...
-        // For the complete implementation, each tool would be defined here
+        {
+            name: 'list_directory',
+            description: 'List contents of a directory in a repository at a given branch or commit. Use this to explore repository structure, find files, or understand project organization.',
+            inputSchema: {
+                type: 'object',
+                properties: {
+                    ...projectOrWorkspaceProperty,
+                    repository: {type: 'string', description: 'Repository slug to explore.'},
+                    path: {type: 'string', description: 'Directory path relative to repository root (default: root directory).'},
+                    branch: {type: 'string', description: 'Branch name to list directory from (default: default branch).'},
+                    commitId: {type: 'string', description: 'Specific commit hash to list directory from (takes precedence over branch).'}
+                },
+                required: ['repository']
+            }
+        },
+        {
+            name: 'create_repository',
+            description: 'Create a new repository in a project or workspace.',
+            inputSchema: {
+                type: 'object',
+                properties: {
+                    ...projectOrWorkspaceProperty,
+                    name: {type: 'string', description: 'Repository name.'},
+                    description: {type: 'string', description: 'Repository description.'},
+                    isPrivate: {type: 'boolean', description: 'Whether the repository should be private (default: true).'},
+                    forkPolicy: {type: 'string', description: 'Fork policy.'},
+                    language: {type: 'string', description: 'Primary programming language.'},
+                    hasIssues: {type: 'boolean', description: 'Enable issue tracker.'},
+                    hasWiki: {type: 'boolean', description: 'Enable wiki.'}
+                },
+                required: ['name']
+            }
+        }
+        // Add more tool definitions here as needed...
     ];
 } 
