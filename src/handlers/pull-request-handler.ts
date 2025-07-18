@@ -236,7 +236,7 @@ export class PullRequestHandler {
             );
         }
 
-        const {text, parentId} = options;
+        const {text, parentId, anchor} = options;
 
         if (this.config.isCloud) {
             const workspace = params.workspace || this.config.defaultProject;
@@ -247,14 +247,25 @@ export class PullRequestHandler {
                 );
             }
 
+            // Prepare the request body
+            const requestBody: any = {
+                content: {
+                    raw: text
+                },
+                parent: parentId ? {id: parentId} : undefined
+            };
+
+            // Add inline data for line-specific comments
+            if (anchor) {
+                requestBody.inline = {
+                    to: anchor.line,
+                    path: anchor.path
+                };
+            }
+
             const response = await this.api.post(
                 `/repositories/${workspace}/${repository}/pullrequests/${prId}/comments`,
-                {
-                    content: {
-                        raw: text
-                    },
-                    parent: parentId ? {id: parentId} : undefined
-                }
+                requestBody
             );
 
             return {
@@ -269,12 +280,25 @@ export class PullRequestHandler {
                 );
             }
 
+            // Prepare the request body
+            const requestBody: any = {
+                text,
+                parent: parentId ? {id: parentId} : undefined
+            };
+
+            // Add anchor data for line-specific comments (Server format)
+            if (anchor) {
+                requestBody.anchor = {
+                    line: anchor.line,
+                    lineType: anchor.lineType || 'ADDED',
+                    path: anchor.path,
+                    srcPath: anchor.path
+                };
+            }
+
             const response = await this.api.post(
                 `/projects/${project}/repos/${repository}/pull-requests/${prId}/comments`,
-                {
-                    text,
-                    parent: parentId ? {id: parentId} : undefined
-                }
+                requestBody
             );
 
             return {

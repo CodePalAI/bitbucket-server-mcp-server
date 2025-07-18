@@ -31,6 +31,11 @@ export interface MergeOptions {
 export interface CommentOptions {
     text: string;
     parentId?: number;
+    anchor?: {
+        line: number;
+        lineType?: 'ADDED' | 'REMOVED' | 'CONTEXT';
+        path: string;
+    };
 }
 
 export interface PullRequestInput extends RepositoryParams {
@@ -200,11 +205,7 @@ export interface SnippetParams {
     workspace?: string;
 }
 
-export interface CreateSnippetInput {
-    title: string;
-    files: { [filename: string]: { content: string } };
-    isPrivate?: boolean;
-}
+
 
 export interface PullRequestActivityParams extends RepositoryParams {
     prId: number;
@@ -244,14 +245,14 @@ export interface SnippetParams {
 export interface CreateSnippetInput extends SnippetParams {
     title: string;
     isPrivate?: boolean;
-    files: { [filename: string]: string };
+    files: { [filename: string]: { content: string } };
 }
 
 export interface UpdateSnippetInput extends SnippetParams {
     snippetId: string;
     title?: string;
     isPrivate?: boolean;
-    files?: { [filename: string]: string };
+    files?: { [filename: string]: { content: string } };
 }
 
 export interface SnippetFileParams extends SnippetParams {
