@@ -403,7 +403,8 @@ export class BitbucketServer {
                         };
                         return await this.pullRequestHandler.addComment(commentPrParams, {
                             text: args.text as string,
-                            parentId: args.parentId as number
+                            parentId: args.parentId as number,
+                            anchor: args.anchor as any
                         });
                     }
 

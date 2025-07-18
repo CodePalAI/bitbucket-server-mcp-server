@@ -186,7 +186,7 @@ export function createToolDefinitions(config: BitbucketConfig) {
         },
         {
             name: 'add_comment',
-            description: 'Add a comment to a pull request for code review, feedback, questions, or discussion.',
+            description: 'Add a comment to a pull request for code review, feedback, questions, or discussion. Supports both general PR comments and inline comments on specific lines of code.',
             inputSchema: {
                 type: 'object',
                 properties: {
@@ -194,7 +194,17 @@ export function createToolDefinitions(config: BitbucketConfig) {
                     repository: {type: 'string', description: 'Repository slug containing the pull request.'},
                     prId: {type: 'number', description: 'Pull request ID to comment on.'},
                     text: {type: 'string', description: 'Comment text content. Supports Markdown formatting.'},
-                    parentId: {type: 'number', description: 'ID of parent comment to reply to.'}
+                    parentId: {type: 'number', description: 'ID of parent comment to reply to.'},
+                    anchor: {
+                        type: 'object',
+                        description: 'Optional: Anchor this comment to a specific line of code. If provided, creates an inline comment on the specified line in the diff view.',
+                        properties: {
+                            line: {type: 'number', description: 'Line number in the file to comment on.'},
+                            lineType: {type: 'string', enum: ['ADDED', 'REMOVED', 'CONTEXT'], description: 'Type of line: ADDED (new line), REMOVED (deleted line), or CONTEXT (unchanged line). Defaults to ADDED.'},
+                            path: {type: 'string', description: 'File path relative to repository root.'}
+                        },
+                        required: ['line', 'path']
+                    }
                 },
                 required: ['repository', 'prId', 'text']
             }
