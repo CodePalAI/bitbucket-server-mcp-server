@@ -3,6 +3,8 @@
 // Debug script for Bitbucket MCP Server
 // Usage: node debug-bitbucket.js
 
+import axios from "axios";
+
 console.log('🔍 Bitbucket MCP Server Debug Tool\n');
 
 // Check environment variables
@@ -67,9 +69,6 @@ console.log();
 // Test API connection (if config is valid)
 if (errors.length === 0) {
     console.log('🧪 Testing API Connection...');
-    
-    const axios = require('axios').default;
-    
     const apiPath = isCloud ? '/2.0' : '/rest/api/1.0';
     const apiBaseURL = isCloud ? 'https://api.bitbucket.org/2.0' : `${baseUrl}${apiPath}`;
     
