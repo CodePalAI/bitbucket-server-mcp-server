@@ -538,6 +538,126 @@ export class IssueHandler {
             throw new McpError(ErrorCode.InvalidParams, 'Issues are only supported on Bitbucket Cloud');
         }
     }
+
+    async listIssueComments(params: any) {
+        const { repository, issueId, limit = 25, start = 0 } = params;
+        
+        if (!repository || !issueId) {
+            throw new McpError(ErrorCode.InvalidParams, 'Repository and issue ID are required');
+        }
+
+        if (this.config.isCloud) {
+            const workspace = params.workspace || this.config.defaultProject;
+            if (!workspace) {
+                throw new McpError(ErrorCode.InvalidParams, 'Workspace is required for Bitbucket Cloud');
+            }
+
+            const response = await this.api.get(`/repositories/${workspace}/${repository}/issues/${issueId}/comments`, {
+                params: { pagelen: limit, page: Math.floor(start / limit) + 1 }
+            });
+            return {
+                content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+            };
+        } else {
+            throw new McpError(ErrorCode.InvalidParams, 'Issues are only supported on Bitbucket Cloud');
+        }
+    }
+
+    async createIssueComment(params: any) {
+        const { repository, issueId, content } = params;
+        
+        if (!repository || !issueId || !content) {
+            throw new McpError(ErrorCode.InvalidParams, 'Repository, issue ID, and content are required');
+        }
+
+        if (this.config.isCloud) {
+            const workspace = params.workspace || this.config.defaultProject;
+            if (!workspace) {
+                throw new McpError(ErrorCode.InvalidParams, 'Workspace is required for Bitbucket Cloud');
+            }
+
+            const commentData = {
+                content: { raw: content }
+            };
+
+            const response = await this.api.post(`/repositories/${workspace}/${repository}/issues/${issueId}/comments`, commentData);
+            return {
+                content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+            };
+        } else {
+            throw new McpError(ErrorCode.InvalidParams, 'Issues are only supported on Bitbucket Cloud');
+        }
+    }
+
+    async getIssueComment(params: any) {
+        const { repository, issueId, commentId } = params;
+        
+        if (!repository || !issueId || !commentId) {
+            throw new McpError(ErrorCode.InvalidParams, 'Repository, issue ID, and comment ID are required');
+        }
+
+        if (this.config.isCloud) {
+            const workspace = params.workspace || this.config.defaultProject;
+            if (!workspace) {
+                throw new McpError(ErrorCode.InvalidParams, 'Workspace is required for Bitbucket Cloud');
+            }
+
+            const response = await this.api.get(`/repositories/${workspace}/${repository}/issues/${issueId}/comments/${commentId}`);
+            return {
+                content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+            };
+        } else {
+            throw new McpError(ErrorCode.InvalidParams, 'Issues are only supported on Bitbucket Cloud');
+        }
+    }
+
+    async updateIssueComment(params: any) {
+        const { repository, issueId, commentId, content } = params;
+        
+        if (!repository || !issueId || !commentId || !content) {
+            throw new McpError(ErrorCode.InvalidParams, 'Repository, issue ID, comment ID, and content are required');
+        }
+
+        if (this.config.isCloud) {
+            const workspace = params.workspace || this.config.defaultProject;
+            if (!workspace) {
+                throw new McpError(ErrorCode.InvalidParams, 'Workspace is required for Bitbucket Cloud');
+            }
+
+            const updateData = {
+                content: { raw: content }
+            };
+
+            const response = await this.api.put(`/repositories/${workspace}/${repository}/issues/${issueId}/comments/${commentId}`, updateData);
+            return {
+                content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+            };
+        } else {
+            throw new McpError(ErrorCode.InvalidParams, 'Issues are only supported on Bitbucket Cloud');
+        }
+    }
+
+    async deleteIssueComment(params: any) {
+        const { repository, issueId, commentId } = params;
+        
+        if (!repository || !issueId || !commentId) {
+            throw new McpError(ErrorCode.InvalidParams, 'Repository, issue ID, and comment ID are required');
+        }
+
+        if (this.config.isCloud) {
+            const workspace = params.workspace || this.config.defaultProject;
+            if (!workspace) {
+                throw new McpError(ErrorCode.InvalidParams, 'Workspace is required for Bitbucket Cloud');
+            }
+
+            await this.api.delete(`/repositories/${workspace}/${repository}/issues/${issueId}/comments/${commentId}`);
+            return {
+                content: [{ type: 'text', text: `Comment ${commentId} deleted successfully` }]
+            };
+        } else {
+            throw new McpError(ErrorCode.InvalidParams, 'Issues are only supported on Bitbucket Cloud');
+        }
+    }
 }
 
 export class WebhookHandler {
@@ -2641,6 +2761,36 @@ export class CommitCommentHandler {
             await this.api.delete(`/projects/${project}/repos/${repository}/commits/${commitId}/comments/${commentId}`);
             return {
                 content: [{ type: 'text', text: `Comment ${commentId} deleted successfully` }]
+            };
+        }
+    }
+
+    async getCommitComment(params: any) {
+        const { repository, commitId, commentId } = params;
+        
+        if (!repository || !commitId || !commentId) {
+            throw new McpError(ErrorCode.InvalidParams, 'Repository, commit ID, and comment ID are required');
+        }
+
+        if (this.config.isCloud) {
+            const workspace = params.workspace || this.config.defaultProject;
+            if (!workspace) {
+                throw new McpError(ErrorCode.InvalidParams, 'Workspace is required for Bitbucket Cloud');
+            }
+
+            const response = await this.api.get(`/repositories/${workspace}/${repository}/commit/${commitId}/comments/${commentId}`);
+            return {
+                content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+            };
+        } else {
+            const project = params.project || this.config.defaultProject;
+            if (!project) {
+                throw new McpError(ErrorCode.InvalidParams, 'Project is required for Bitbucket Server');
+            }
+
+            const response = await this.api.get(`/projects/${project}/repos/${repository}/commits/${commitId}/comments/${commentId}`);
+            return {
+                content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
             };
         }
     }

@@ -936,15 +936,15 @@ export function createToolDefinitions(config: BitbucketConfig) {
                         description: 'Type of restriction to create.'
                     },
                     pattern: {type: 'string', description: 'Branch name pattern (supports wildcards like main, feature/*, etc).'},
-                    users: {
+                    userIds: {
                         type: 'array',
                         items: {type: 'string'},
-                        description: 'List of usernames exempt from this restriction.'
+                        description: 'List of user IDs exempt from this restriction.'
                     },
-                    groups: {
+                    groupIds: {
                         type: 'array',
                         items: {type: 'string'},
-                        description: 'List of groups exempt from this restriction.'
+                        description: 'List of group IDs exempt from this restriction.'
                     }
                 },
                 required: ['repository', 'kind', 'pattern']
@@ -973,15 +973,15 @@ export function createToolDefinitions(config: BitbucketConfig) {
                     repository: {type: 'string', description: 'Repository slug containing the restriction.'},
                     restrictionId: {type: 'string', description: 'ID of the branch restriction.'},
                     pattern: {type: 'string', description: 'Updated branch name pattern.'},
-                    users: {
+                    userIds: {
                         type: 'array',
                         items: {type: 'string'},
-                        description: 'Updated list of usernames exempt from this restriction.'
+                        description: 'Updated list of user IDs exempt from this restriction.'
                     },
-                    groups: {
+                    groupIds: {
                         type: 'array',
                         items: {type: 'string'},
-                        description: 'Updated list of groups exempt from this restriction.'
+                        description: 'Updated list of group IDs exempt from this restriction.'
                     }
                 },
                 required: ['repository', 'restrictionId']
@@ -1026,8 +1026,8 @@ export function createToolDefinitions(config: BitbucketConfig) {
                     repository: {type: 'string', description: 'Repository slug containing the commit.'},
                     commitId: {type: 'string', description: 'Commit hash to comment on.'},
                     content: {type: 'string', description: 'Comment text content. Supports Markdown formatting.'},
-                    path: {type: 'string', description: 'File path for inline comments.'},
-                    line: {type: 'number', description: 'Line number for inline comments.'}
+                    filename: {type: 'string', description: 'File path for inline comments.'},
+                    lineNumber: {type: 'number', description: 'Line number for inline comments.'}
                 },
                 required: ['repository', 'commitId', 'content']
             }

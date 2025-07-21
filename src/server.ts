@@ -1225,6 +1225,167 @@ export class BitbucketServer {
                         });
                     }
 
+                    // Get specific commit comment
+                    case 'get_commit_comment': {
+                        logger.debug('💬 Executing get_commit_comment');
+                        const projectOrWorkspace = getProjectOrWorkspace(this.config, 
+                            this.config.isCloud ? args.workspace as string : args.project as string);
+                        return await this.commitCommentHandler.getCommitComment({
+                            ...(this.config.isCloud ? { workspace: projectOrWorkspace } : { project: projectOrWorkspace }),
+                            repository: args.repository as string,
+                            commitId: args.commitId as string,
+                            commentId: args.commentId as string
+                        });
+                    }
+
+                    // Issue comments
+                    case 'list_issue_comments': {
+                        logger.debug('💬 Executing list_issue_comments');
+                        const projectOrWorkspace = getProjectOrWorkspace(this.config, 
+                            this.config.isCloud ? args.workspace as string : args.project as string);
+                        return await this.issueHandler.listIssueComments({
+                            ...(this.config.isCloud ? { workspace: projectOrWorkspace } : { project: projectOrWorkspace }),
+                            repository: args.repository as string,
+                            issueId: args.issueId as number,
+                            limit: args.limit as number,
+                            start: args.start as number
+                        });
+                    }
+
+                    case 'create_issue_comment': {
+                        logger.debug('💬 Executing create_issue_comment');
+                        const projectOrWorkspace = getProjectOrWorkspace(this.config, 
+                            this.config.isCloud ? args.workspace as string : args.project as string);
+                        return await this.issueHandler.createIssueComment({
+                            ...(this.config.isCloud ? { workspace: projectOrWorkspace } : { project: projectOrWorkspace }),
+                            repository: args.repository as string,
+                            issueId: args.issueId as number,
+                            content: args.content as string
+                        });
+                    }
+
+                    case 'get_issue_comment': {
+                        logger.debug('💬 Executing get_issue_comment');
+                        const projectOrWorkspace = getProjectOrWorkspace(this.config, 
+                            this.config.isCloud ? args.workspace as string : args.project as string);
+                        return await this.issueHandler.getIssueComment({
+                            ...(this.config.isCloud ? { workspace: projectOrWorkspace } : { project: projectOrWorkspace }),
+                            repository: args.repository as string,
+                            issueId: args.issueId as number,
+                            commentId: args.commentId as string
+                        });
+                    }
+
+                    case 'update_issue_comment': {
+                        logger.debug('💬 Executing update_issue_comment');
+                        const projectOrWorkspace = getProjectOrWorkspace(this.config, 
+                            this.config.isCloud ? args.workspace as string : args.project as string);
+                        return await this.issueHandler.updateIssueComment({
+                            ...(this.config.isCloud ? { workspace: projectOrWorkspace } : { project: projectOrWorkspace }),
+                            repository: args.repository as string,
+                            issueId: args.issueId as number,
+                            commentId: args.commentId as string,
+                            content: args.content as string
+                        });
+                    }
+
+                    case 'delete_issue_comment': {
+                        logger.debug('💬 Executing delete_issue_comment');
+                        const projectOrWorkspace = getProjectOrWorkspace(this.config, 
+                            this.config.isCloud ? args.workspace as string : args.project as string);
+                        return await this.issueHandler.deleteIssueComment({
+                            ...(this.config.isCloud ? { workspace: projectOrWorkspace } : { project: projectOrWorkspace }),
+                            repository: args.repository as string,
+                            issueId: args.issueId as number,
+                            commentId: args.commentId as string
+                        });
+                    }
+
+                    // Default reviewers
+                    case 'list_default_reviewers': {
+                        logger.debug('👥 Executing list_default_reviewers');
+                        const projectOrWorkspace = getProjectOrWorkspace(this.config, 
+                            this.config.isCloud ? args.workspace as string : args.project as string);
+                        return await this.listDefaultReviewers({
+                            ...(this.config.isCloud ? { workspace: projectOrWorkspace } : { project: projectOrWorkspace }),
+                            repository: args.repository as string
+                        });
+                    }
+
+                    case 'add_default_reviewer': {
+                        logger.debug('👥 Executing add_default_reviewer');
+                        const projectOrWorkspace = getProjectOrWorkspace(this.config, 
+                            this.config.isCloud ? args.workspace as string : args.project as string);
+                        return await this.addDefaultReviewer({
+                            ...(this.config.isCloud ? { workspace: projectOrWorkspace } : { project: projectOrWorkspace }),
+                            repository: args.repository as string,
+                            username: args.username as string
+                        });
+                    }
+
+                    case 'remove_default_reviewer': {
+                        logger.debug('👥 Executing remove_default_reviewer');
+                        const projectOrWorkspace = getProjectOrWorkspace(this.config, 
+                            this.config.isCloud ? args.workspace as string : args.project as string);
+                        return await this.removeDefaultReviewer({
+                            ...(this.config.isCloud ? { workspace: projectOrWorkspace } : { project: projectOrWorkspace }),
+                            repository: args.repository as string,
+                            username: args.username as string
+                        });
+                    }
+
+                    // Repository comparison and file operations
+                    case 'compare_commits': {
+                        logger.debug('🔍 Executing compare_commits');
+                        const projectOrWorkspace = getProjectOrWorkspace(this.config, 
+                            this.config.isCloud ? args.workspace as string : args.project as string);
+                        return await this.compareCommits({
+                            ...(this.config.isCloud ? { workspace: projectOrWorkspace } : { project: projectOrWorkspace }),
+                            repository: args.repository as string,
+                            source: args.source as string,
+                            destination: args.destination as string,
+                            include_merge_commit: args.include_merge_commit as boolean
+                        });
+                    }
+
+                    case 'get_merge_base': {
+                        logger.debug('🔍 Executing get_merge_base');
+                        const projectOrWorkspace = getProjectOrWorkspace(this.config, 
+                            this.config.isCloud ? args.workspace as string : args.project as string);
+                        return await this.getMergeBase({
+                            ...(this.config.isCloud ? { workspace: projectOrWorkspace } : { project: projectOrWorkspace }),
+                            repository: args.repository as string,
+                            commit1: args.commit1 as string,
+                            commit2: args.commit2 as string
+                        });
+                    }
+
+                    case 'get_file_history': {
+                        logger.debug('📋 Executing get_file_history');
+                        const projectOrWorkspace = getProjectOrWorkspace(this.config, 
+                            this.config.isCloud ? args.workspace as string : args.project as string);
+                        return await this.getFileHistory({
+                            ...(this.config.isCloud ? { workspace: projectOrWorkspace } : { project: projectOrWorkspace }),
+                            repository: args.repository as string,
+                            path: args.path as string,
+                            branch: args.branch as string,
+                            limit: args.limit as number
+                        });
+                    }
+
+                    case 'get_file_blame': {
+                        logger.debug('📋 Executing get_file_blame');
+                        const projectOrWorkspace = getProjectOrWorkspace(this.config, 
+                            this.config.isCloud ? args.workspace as string : args.project as string);
+                        return await this.getFileBlame({
+                            ...(this.config.isCloud ? { workspace: projectOrWorkspace } : { project: projectOrWorkspace }),
+                            repository: args.repository as string,
+                            path: args.path as string,
+                            branch: args.branch as string,
+                            commitId: args.commitId as string
+                        });
+                    }
+
                     default:
                         logger.error('❌ Unknown tool requested', {
                             toolName,
@@ -1245,7 +1406,7 @@ export class BitbucketServer {
                     } : error,
                     arguments: args
                 });
-                handleApiError(error, this.config);
+                throw handleApiError(error, this.config);
             }
         });
     }
@@ -1328,6 +1489,248 @@ export class BitbucketServer {
                 {params: {at: ref}}
             );
 
+            return {
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
+            };
+        }
+    }
+
+    // Default reviewers operations
+    private async listDefaultReviewers(params: any) {
+        const { repository } = params;
+        
+        if (!repository) {
+            throw new McpError(ErrorCode.InvalidParams, 'Repository is required');
+        }
+
+        if (this.config.isCloud) {
+            const workspace = params.workspace || this.config.defaultProject;
+            if (!workspace) {
+                throw new McpError(ErrorCode.InvalidParams, 'Workspace is required for Bitbucket Cloud');
+            }
+
+            const response = await this.api.get(`/repositories/${workspace}/${repository}/default-reviewers`);
+            return {
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
+            };
+        } else {
+            const project = params.project || this.config.defaultProject;
+            if (!project) {
+                throw new McpError(ErrorCode.InvalidParams, 'Project is required for Bitbucket Server');
+            }
+
+            const response = await this.api.get(`/projects/${project}/repos/${repository}/settings/pull-requests`);
+            return {
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
+            };
+        }
+    }
+
+    private async addDefaultReviewer(params: any) {
+        const { repository, username } = params;
+        
+        if (!repository || !username) {
+            throw new McpError(ErrorCode.InvalidParams, 'Repository and username are required');
+        }
+
+        if (this.config.isCloud) {
+            const workspace = params.workspace || this.config.defaultProject;
+            if (!workspace) {
+                throw new McpError(ErrorCode.InvalidParams, 'Workspace is required for Bitbucket Cloud');
+            }
+
+            const response = await this.api.put(`/repositories/${workspace}/${repository}/default-reviewers/${username}`);
+            return {
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
+            };
+        } else {
+            const project = params.project || this.config.defaultProject;
+            if (!project) {
+                throw new McpError(ErrorCode.InvalidParams, 'Project is required for Bitbucket Server');
+            }
+
+            // For Bitbucket Server, we need to modify repository settings
+            const response = await this.api.put(`/projects/${project}/repos/${repository}/permissions/users`, {
+                name: username,
+                permission: "REPO_READ"
+            });
+            return {
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
+            };
+        }
+    }
+
+    private async removeDefaultReviewer(params: any) {
+        const { repository, username } = params;
+        
+        if (!repository || !username) {
+            throw new McpError(ErrorCode.InvalidParams, 'Repository and username are required');
+        }
+
+        if (this.config.isCloud) {
+            const workspace = params.workspace || this.config.defaultProject;
+            if (!workspace) {
+                throw new McpError(ErrorCode.InvalidParams, 'Workspace is required for Bitbucket Cloud');
+            }
+
+            await this.api.delete(`/repositories/${workspace}/${repository}/default-reviewers/${username}`);
+            return {
+                content: [{type: 'text', text: `Default reviewer ${username} removed successfully`}]
+            };
+        } else {
+            const project = params.project || this.config.defaultProject;
+            if (!project) {
+                throw new McpError(ErrorCode.InvalidParams, 'Project is required for Bitbucket Server');
+            }
+
+            await this.api.delete(`/projects/${project}/repos/${repository}/permissions/users?name=${username}`);
+            return {
+                content: [{type: 'text', text: `Default reviewer ${username} removed successfully`}]
+            };
+        }
+    }
+
+    // Repository comparison operations
+    private async compareCommits(params: any) {
+        const { repository, source, destination, include_merge_commit = false } = params;
+        
+        if (!repository || !source || !destination) {
+            throw new McpError(ErrorCode.InvalidParams, 'Repository, source, and destination are required');
+        }
+
+        if (this.config.isCloud) {
+            const workspace = params.workspace || this.config.defaultProject;
+            if (!workspace) {
+                throw new McpError(ErrorCode.InvalidParams, 'Workspace is required for Bitbucket Cloud');
+            }
+
+            const queryParams: any = {};
+            if (include_merge_commit) queryParams.merge = true;
+
+            const response = await this.api.get(`/repositories/${workspace}/${repository}/diff/${source}..${destination}`, {
+                params: queryParams
+            });
+            return {
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
+            };
+        } else {
+            const project = params.project || this.config.defaultProject;
+            if (!project) {
+                throw new McpError(ErrorCode.InvalidParams, 'Project is required for Bitbucket Server');
+            }
+
+            const response = await this.api.get(`/projects/${project}/repos/${repository}/compare/changes`, {
+                params: { from: source, to: destination }
+            });
+            return {
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
+            };
+        }
+    }
+
+    private async getMergeBase(params: any) {
+        const { repository, commit1, commit2 } = params;
+        
+        if (!repository || !commit1 || !commit2) {
+            throw new McpError(ErrorCode.InvalidParams, 'Repository, commit1, and commit2 are required');
+        }
+
+        if (this.config.isCloud) {
+            const workspace = params.workspace || this.config.defaultProject;
+            if (!workspace) {
+                throw new McpError(ErrorCode.InvalidParams, 'Workspace is required for Bitbucket Cloud');
+            }
+
+            // Bitbucket Cloud doesn't have a direct merge-base API, so we use commits API
+            const response = await this.api.get(`/repositories/${workspace}/${repository}/merge-base/${commit1}/${commit2}`);
+            return {
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
+            };
+        } else {
+            const project = params.project || this.config.defaultProject;
+            if (!project) {
+                throw new McpError(ErrorCode.InvalidParams, 'Project is required for Bitbucket Server');
+            }
+
+            const response = await this.api.get(`/projects/${project}/repos/${repository}/commits/${commit1}/merge-base/${commit2}`);
+            return {
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
+            };
+        }
+    }
+
+    // File operations
+    private async getFileHistory(params: any) {
+        const { repository, path, branch, limit = 25 } = params;
+        
+        if (!repository || !path) {
+            throw new McpError(ErrorCode.InvalidParams, 'Repository and path are required');
+        }
+
+        if (this.config.isCloud) {
+            const workspace = params.workspace || this.config.defaultProject;
+            if (!workspace) {
+                throw new McpError(ErrorCode.InvalidParams, 'Workspace is required for Bitbucket Cloud');
+            }
+
+            const ref = branch || 'HEAD';
+            const response = await this.api.get(`/repositories/${workspace}/${repository}/filehistory/${ref}/${path}`, {
+                params: { pagelen: limit }
+            });
+            return {
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
+            };
+        } else {
+            const project = params.project || this.config.defaultProject;
+            if (!project) {
+                throw new McpError(ErrorCode.InvalidParams, 'Project is required for Bitbucket Server');
+            }
+
+            const queryParams: any = { path, limit };
+            if (branch) queryParams.until = branch;
+
+            const response = await this.api.get(`/projects/${project}/repos/${repository}/commits`, {
+                params: queryParams
+            });
+            return {
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
+            };
+        }
+    }
+
+    private async getFileBlame(params: any) {
+        const { repository, path, branch, commitId } = params;
+        
+        if (!repository || !path) {
+            throw new McpError(ErrorCode.InvalidParams, 'Repository and path are required');
+        }
+
+        if (this.config.isCloud) {
+            const workspace = params.workspace || this.config.defaultProject;
+            if (!workspace) {
+                throw new McpError(ErrorCode.InvalidParams, 'Workspace is required for Bitbucket Cloud');
+            }
+
+            const ref = commitId || branch || 'HEAD';
+            const response = await this.api.get(`/repositories/${workspace}/${repository}/src/${ref}/${path}`, {
+                params: { annotate: true }
+            });
+            return {
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
+            };
+        } else {
+            const project = params.project || this.config.defaultProject;
+            if (!project) {
+                throw new McpError(ErrorCode.InvalidParams, 'Project is required for Bitbucket Server');
+            }
+
+            const queryParams: any = { blame: '' };
+            if (commitId) queryParams.at = commitId;
+            else if (branch) queryParams.at = branch;
+
+            const response = await this.api.get(`/projects/${project}/repos/${repository}/browse/${path}`, {
+                params: queryParams
+            });
             return {
                 content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
             };
