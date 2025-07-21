@@ -1329,18 +1329,89 @@ export class DiffHandler {
                 throw new McpError(ErrorCode.InvalidParams, 'Workspace is required for Bitbucket Cloud');
             }
 
-            let diffUrl = `/repositories/${workspace}/${repository}/diff/${spec}`;
-            const queryParams: any = {context};
-            if (path) queryParams.path = path;
-            if (ignore_whitespace) queryParams.ignore_whitespace = 'true';
+            // First verify that the commits exist in the repository
+            const commitsExist = await this.verifyCommitsExist(workspace, repository, spec);
+            if (!commitsExist.valid) {
+                return {
+                    content: [{
+                        type: 'text', 
+                        text: `Commit verification failed:\n${commitsExist.message}\n\n` +
+                              `This is likely why the diff returned empty. Please ensure:\n` +
+                              `1. Both commits exist in the Bitbucket Cloud repository\n` +
+                              `2. The commits have been pushed to the remote repository\n` +
+                              `3. You have access to view the repository`
+                    }]
+                };
+            }
 
-            const response = await this.api.get(diffUrl, {
-                params: queryParams,
-                headers: {Accept: 'text/plain'}
-            });
+            // First try the standard diff endpoint
+            const result = await this.tryStandardDiff(workspace, repository, spec, path, context, ignore_whitespace);
+            if (result.success) {
+                return result.content;
+            }
 
+            // If standard diff returns empty, try alternative approaches
+            console.log('Standard diff returned empty, trying alternative approaches...');
+            
+            // Try reversing the commit order (Bitbucket uses opposite order from git diff)
+            if (spec.includes('..')) {
+                const [first, second] = spec.split('..');
+                const reversedSpec = `${second}..${first}`;
+                console.log(`Trying reversed spec: ${reversedSpec}`);
+                
+                const reversedResult = await this.tryStandardDiff(workspace, repository, reversedSpec, path, context, ignore_whitespace);
+                if (reversedResult.success && reversedResult.content) {
+                    return {
+                        content: [{
+                            type: 'text', 
+                            text: `Note: Used reversed commit order (${reversedSpec}) to get diff:\n\n${reversedResult.content.content[0].text}`
+                        }]
+                    };
+                }
+            }
+
+            // Try the compare endpoint as a fallback
+            try {
+                const compareResult = await this.tryCompareDiff(workspace, repository, spec, path, context, ignore_whitespace);
+                if (compareResult.success && compareResult.content) {
+                    return {
+                        content: [{
+                            type: 'text', 
+                            text: `Note: Retrieved diff using compare endpoint:\n\n${compareResult.content.content[0].text}`
+                        }]
+                    };
+                }
+            } catch (error) {
+                console.log('Compare endpoint also failed:', error);
+            }
+
+            // If all approaches fail, return helpful debug information
+            const debugInfo = {
+                spec,
+                workspace,
+                repository,
+                message: 'All diff retrieval methods returned empty responses. This could mean:',
+                possibleCauses: [
+                    '1. The commits are identical (no differences)',
+                    '2. One or both commits do not exist in the remote repository',
+                    '3. The commits need to be fully qualified (40 characters)',
+                    '4. The commit range is invalid',
+                    '5. The commits have not been pushed to Bitbucket Cloud'
+                ],
+                suggestions: [
+                    'Verify commits exist: Check if both commits are visible in Bitbucket Cloud',
+                    'Try full commit hashes: Use complete 40-character commit hashes',
+                    'Check local vs remote: Ensure commits are pushed to the remote repository',
+                    'Test individual commits: Try getting diff for a single commit first'
+                ],
+                commitVerification: commitsExist
+            };
+            
             return {
-                content: [{type: 'text', text: response.data}]
+                content: [{
+                    type: 'text', 
+                    text: `No differences found after trying multiple approaches.\n\nDebug Information:\n${JSON.stringify(debugInfo, null, 2)}`
+                }]
             };
         } else {
             const project = params.project || this.config.defaultProject;
@@ -1367,6 +1438,158 @@ export class DiffHandler {
             return {
                 content: [{type: 'text', text: response.data}]
             };
+        }
+    }
+
+    private async verifyCommitsExist(workspace: string, repository: string, spec: string) {
+        try {
+            if (spec.includes('..')) {
+                const [first, second] = spec.split('..');
+                
+                // Check first commit
+                const firstCommitResponse = await this.api.get(`/repositories/${workspace}/${repository}/commit/${first}`);
+                console.log(`Commit ${first} exists:`, firstCommitResponse.status === 200);
+                
+                // Check second commit
+                const secondCommitResponse = await this.api.get(`/repositories/${workspace}/${repository}/commit/${second}`);
+                console.log(`Commit ${second} exists:`, secondCommitResponse.status === 200);
+                
+                return {
+                    valid: true,
+                    message: `Both commits verified: ${first} and ${second} exist in the repository`,
+                    commits: {
+                        first: { hash: first, exists: true },
+                        second: { hash: second, exists: true }
+                    }
+                };
+            } else {
+                // Single commit
+                const commitResponse = await this.api.get(`/repositories/${workspace}/${repository}/commit/${spec}`);
+                console.log(`Commit ${spec} exists:`, commitResponse.status === 200);
+                
+                return {
+                    valid: true,
+                    message: `Commit verified: ${spec} exists in the repository`,
+                    commits: {
+                        single: { hash: spec, exists: true }
+                    }
+                };
+            }
+        } catch (error: any) {
+            if (error.response?.status === 404) {
+                const [first, second] = spec.includes('..') ? spec.split('..') : [spec];
+                return {
+                    valid: false,
+                    message: `One or more commits not found in repository. This explains the empty diff response.`,
+                    commits: {
+                        first: { hash: first, exists: false },
+                        ...(second && { second: { hash: second, exists: false } })
+                    },
+                    error: 'Commits not found (404)'
+                };
+            }
+            
+            return {
+                valid: false,
+                message: `Error verifying commits: ${error.message}`,
+                error: error.message
+            };
+        }
+    }
+
+    private async tryStandardDiff(workspace: string, repository: string, spec: string, path?: string, context: number = 3, ignore_whitespace: boolean = false) {
+        try {
+            let diffUrl = `/repositories/${workspace}/${repository}/diff/${spec}`;
+            const queryParams: any = {context};
+            if (path) queryParams.path = path;
+            if (ignore_whitespace) queryParams.ignore_whitespace = 'true';
+
+            const response = await this.api.get(diffUrl, {
+                params: queryParams,
+                headers: {Accept: 'text/plain'}
+            });
+
+            console.log('Standard Diff API Response:', {
+                url: diffUrl,
+                params: queryParams,
+                responseLength: response.data ? response.data.length : 0,
+                responseType: typeof response.data,
+                status: response.status
+            });
+
+            if (response.data && response.data.length > 0) {
+                return {
+                    success: true,
+                    content: {
+                        content: [{type: 'text', text: response.data}]
+                    }
+                };
+            }
+
+            return { success: false, content: null };
+        } catch (error: any) {
+            console.log('Standard diff failed:', error.message);
+            if (error.response?.status === 404) {
+                throw new McpError(ErrorCode.InvalidParams, 
+                    `Repository or commits not found. Please verify:\n` +
+                    `1. Repository "${workspace}/${repository}" exists\n` +
+                    `2. Commits in spec "${spec}" exist in the remote repository\n` +
+                    `3. Commits are pushed to Bitbucket Cloud`
+                );
+            } else if (error.response?.status === 400) {
+                throw new McpError(ErrorCode.InvalidParams, 
+                    `Invalid diff request. Please check:\n` +
+                    `1. Spec format is correct (commit1..commit2)\n` +
+                    `2. Commit hashes are valid\n` +
+                    `3. Path parameter (if used) is valid`
+                );
+            }
+            return { success: false, content: null };
+        }
+    }
+
+    private async tryCompareDiff(workspace: string, repository: string, spec: string, path?: string, context: number = 3, ignore_whitespace: boolean = false) {
+        try {
+            // Parse the spec to get individual commits
+            const [firstCommit, secondCommit] = spec.split('..');
+            if (!firstCommit || !secondCommit) {
+                return { success: false, content: null };
+            }
+
+            // Try using the compare commits endpoint
+            let compareUrl = `/repositories/${workspace}/${repository}/diff/${firstCommit}..${secondCommit}`;
+            const queryParams: any = {
+                context,
+                topic: false  // Use simple git-style diff
+            };
+            if (path) queryParams.path = path;
+            if (ignore_whitespace) queryParams.ignore_whitespace = true;
+
+            const response = await this.api.get(compareUrl, {
+                params: queryParams,
+                headers: {Accept: 'text/plain'}
+            });
+
+            console.log('Compare Diff API Response:', {
+                url: compareUrl,
+                params: queryParams,
+                responseLength: response.data ? response.data.length : 0,
+                status: response.status
+            });
+
+            if (response.data && response.data.length > 0) {
+                return {
+                    success: true,
+                    content: {
+                        content: [{type: 'text', text: response.data}]
+                    }
+                };
+            }
+
+            return { success: false, content: null };
+        } catch (error: any) {
+            console.log('Compare diff failed:', error.message);
+            return { success: false, content: null };
         }
     }
 }
