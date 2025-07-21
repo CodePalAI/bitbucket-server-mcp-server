@@ -1484,7 +1484,7 @@ export class DiffHandler {
                     return {
                         content: [{
                             type: 'text', 
-                            text: `Note: Used reversed commit order (${reversedSpec}) to get diff:\n\n${reversedResult.content.content[0].text}`
+                            text: reversedResult.content.content[0].text
                         }]
                     };
                 }
