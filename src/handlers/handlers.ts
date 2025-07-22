@@ -1466,7 +1466,7 @@ export class DiffHandler {
 
             // First try the standard diff endpoint
             const result = await this.tryStandardDiff(workspace, repository, spec, path, context, ignore_whitespace);
-            if (result.success) {
+            if (result.success && result.content) {
                 return result.content;
             }
 

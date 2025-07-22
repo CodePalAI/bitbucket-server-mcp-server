@@ -1,6 +1,6 @@
 import {Server} from '@modelcontextprotocol/sdk/server/index.js';
 import {StdioServerTransport} from '@modelcontextprotocol/sdk/server/stdio.js';
-import {CallToolRequestSchema, ErrorCode, ListToolsRequestSchema, McpError} from '@modelcontextprotocol/sdk/types.js';
+import {CallToolRequestSchema, CallToolResult, ErrorCode, ListToolsRequestSchema, McpError} from '@modelcontextprotocol/sdk/types.js';
 import winston from 'winston';
 
 import {createBitbucketConfig, getProjectOrWorkspace} from './config/bitbucket-config.js';
@@ -207,7 +207,7 @@ export class BitbucketServer {
             return {tools: toolDefinitions};
         });
 
-        this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
+        this.server.setRequestHandler(CallToolRequestSchema, async (request, extra): Promise<{ content: Array<{ type: string; text: string }> }> => {
             const toolName = request.params.name;
             const rawArgs = request.params.arguments ?? {};
 
