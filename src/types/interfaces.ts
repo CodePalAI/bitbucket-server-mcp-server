@@ -11,6 +11,15 @@ export interface BitbucketConfig {
     password?: string;
     defaultProject?: string;
     isCloud: boolean;
+    platformType: 'cloud' | 'server' | 'datacenter';
+    version?: string; // API version or Bitbucket version
+    features?: {
+        supportsPipelines?: boolean;
+        supportsSnippets?: boolean;
+        supportsBuildStatus?: boolean;
+        supportsDeployments?: boolean;
+        supportsHttpAccessTokens?: boolean;
+    };
 }
 
 export interface RepositoryParams {

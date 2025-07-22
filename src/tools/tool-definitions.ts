@@ -200,7 +200,11 @@ export function createToolDefinitions(config: BitbucketConfig) {
                         description: 'Optional: Anchor this comment to a specific line of code. If provided, creates an inline comment on the specified line in the diff view.',
                         properties: {
                             line: {type: 'number', description: 'Line number in the file to comment on.'},
-                            lineType: {type: 'string', enum: ['ADDED', 'REMOVED', 'CONTEXT'], description: 'Type of line: ADDED (new line), REMOVED (deleted line), or CONTEXT (unchanged line). Defaults to ADDED.'},
+                            lineType: {
+                                type: 'string',
+                                enum: ['ADDED', 'REMOVED', 'CONTEXT'],
+                                description: 'Type of line: ADDED (new line), REMOVED (deleted line), or CONTEXT (unchanged line). Defaults to ADDED.'
+                            },
                             path: {type: 'string', description: 'File path relative to repository root.'}
                         },
                         required: ['line', 'path']
@@ -728,8 +732,8 @@ export function createToolDefinitions(config: BitbucketConfig) {
                 required: ['repository']
             }
         },
-        // Bitbucket Cloud specific: Pipelines
-        ...(config.isCloud ? [
+        // Bitbucket Cloud specific: Pipeline Operations
+        ...(config.isCloud && config.features?.supportsPipelines ? [
             {
                 name: 'list_pipelines',
                 description: 'List Bitbucket Pipelines builds for a repository.',
@@ -811,7 +815,7 @@ export function createToolDefinitions(config: BitbucketConfig) {
             }
         ] : []),
         // Bitbucket Cloud specific: Snippets
-        ...(config.isCloud ? [
+        ...(config.isCloud && config.features?.supportsSnippets ? [
             {
                 name: 'list_snippets',
                 description: 'List code snippets for a workspace. Snippets are code segments that can be shared publicly or privately.',
@@ -849,7 +853,10 @@ export function createToolDefinitions(config: BitbucketConfig) {
                     properties: {
                         ...projectOrWorkspaceProperty,
                         title: {type: 'string', description: 'Title for the snippet.'},
-                        isPrivate: {type: 'boolean', description: 'Whether the snippet should be private (default: true).'},
+                        isPrivate: {
+                            type: 'boolean',
+                            description: 'Whether the snippet should be private (default: true).'
+                        },
                         files: {
                             type: 'object',
                             description: 'Files to include in the snippet. Object keys are filenames, values are file content.',
@@ -935,7 +942,10 @@ export function createToolDefinitions(config: BitbucketConfig) {
                         enum: ['push', 'force', 'delete', 'restrict_merges'],
                         description: 'Type of restriction to create.'
                     },
-                    pattern: {type: 'string', description: 'Branch name pattern (supports wildcards like main, feature/*, etc).'},
+                    pattern: {
+                        type: 'string',
+                        description: 'Branch name pattern (supports wildcards like main, feature/*, etc).'
+                    },
                     userIds: {
                         type: 'array',
                         items: {type: 'string'},
@@ -1156,7 +1166,10 @@ export function createToolDefinitions(config: BitbucketConfig) {
                 type: 'object',
                 properties: {
                     ...projectOrWorkspaceProperty,
-                    repository: {type: 'string', description: 'Repository slug to list default reviewers from (optional for project-level).'}
+                    repository: {
+                        type: 'string',
+                        description: 'Repository slug to list default reviewers from (optional for project-level).'
+                    }
                 }
             }
         },
@@ -1167,7 +1180,10 @@ export function createToolDefinitions(config: BitbucketConfig) {
                 type: 'object',
                 properties: {
                     ...projectOrWorkspaceProperty,
-                    repository: {type: 'string', description: 'Repository slug to add default reviewer to (optional for project-level).'},
+                    repository: {
+                        type: 'string',
+                        description: 'Repository slug to add default reviewer to (optional for project-level).'
+                    },
                     username: {type: 'string', description: 'Username to add as default reviewer.'}
                 },
                 required: ['username']
@@ -1180,7 +1196,10 @@ export function createToolDefinitions(config: BitbucketConfig) {
                 type: 'object',
                 properties: {
                     ...projectOrWorkspaceProperty,
-                    repository: {type: 'string', description: 'Repository slug to remove default reviewer from (optional for project-level).'},
+                    repository: {
+                        type: 'string',
+                        description: 'Repository slug to remove default reviewer from (optional for project-level).'
+                    },
                     username: {type: 'string', description: 'Username to remove from default reviewers.'}
                 },
                 required: ['username']
@@ -1197,7 +1216,10 @@ export function createToolDefinitions(config: BitbucketConfig) {
                     repository: {type: 'string', description: 'Repository slug to compare in.'},
                     source: {type: 'string', description: 'Source commit/branch/tag to compare from.'},
                     destination: {type: 'string', description: 'Destination commit/branch/tag to compare to.'},
-                    include_merge_commit: {type: 'boolean', description: 'Whether to include merge commits in comparison.'}
+                    include_merge_commit: {
+                        type: 'boolean',
+                        description: 'Whether to include merge commits in comparison.'
+                    }
                 },
                 required: ['repository', 'source', 'destination']
             }
@@ -1242,13 +1264,16 @@ export function createToolDefinitions(config: BitbucketConfig) {
                     repository: {type: 'string', description: 'Repository slug containing the file.'},
                     path: {type: 'string', description: 'File path to get blame information for.'},
                     branch: {type: 'string', description: 'Branch to get file blame from (default: default branch).'},
-                    commitId: {type: 'string', description: 'Specific commit to get blame from (takes precedence over branch).'}
+                    commitId: {
+                        type: 'string',
+                        description: 'Specific commit to get blame from (takes precedence over branch).'
+                    }
                 },
                 required: ['repository', 'path']
             }
         },
         // Bitbucket Server specific: Build status
-        ...(!config.isCloud ? [
+        ...(!config.isCloud && config.features?.supportsBuildStatus ? [
             {
                 name: 'get_build_status',
                 description: 'Get build status for a specific commit.',
@@ -1285,7 +1310,7 @@ export function createToolDefinitions(config: BitbucketConfig) {
                 }
             }
         ] : []),
-        
+
         // Downloads functionality (both Cloud and Server)
         {
             name: 'list_downloads',
@@ -1326,7 +1351,7 @@ export function createToolDefinitions(config: BitbucketConfig) {
                 required: ['repository', 'filename']
             }
         },
-        
+
         // Forking functionality
         {
             name: 'fork_repository',
@@ -1358,9 +1383,9 @@ export function createToolDefinitions(config: BitbucketConfig) {
                 required: ['repository']
             }
         },
-        
+
         // Bitbucket Cloud specific: Deployments and Environments
-        ...(config.isCloud ? [
+        ...(config.isCloud && config.features?.supportsDeployments ? [
             {
                 name: 'list_deployments',
                 description: 'List deployments for a repository in Bitbucket Cloud.',

@@ -540,8 +540,8 @@ export class IssueHandler {
     }
 
     async listIssueComments(params: any) {
-        const { repository, issueId, limit = 25, start = 0 } = params;
-        
+        const {repository, issueId, limit = 25, start = 0} = params;
+
         if (!repository || !issueId) {
             throw new McpError(ErrorCode.InvalidParams, 'Repository and issue ID are required');
         }
@@ -553,10 +553,10 @@ export class IssueHandler {
             }
 
             const response = await this.api.get(`/repositories/${workspace}/${repository}/issues/${issueId}/comments`, {
-                params: { pagelen: limit, page: Math.floor(start / limit) + 1 }
+                params: {pagelen: limit, page: Math.floor(start / limit) + 1}
             });
             return {
-                content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
             };
         } else {
             throw new McpError(ErrorCode.InvalidParams, 'Issues are only supported on Bitbucket Cloud');
@@ -564,8 +564,8 @@ export class IssueHandler {
     }
 
     async createIssueComment(params: any) {
-        const { repository, issueId, content } = params;
-        
+        const {repository, issueId, content} = params;
+
         if (!repository || !issueId || !content) {
             throw new McpError(ErrorCode.InvalidParams, 'Repository, issue ID, and content are required');
         }
@@ -577,12 +577,12 @@ export class IssueHandler {
             }
 
             const commentData = {
-                content: { raw: content }
+                content: {raw: content}
             };
 
             const response = await this.api.post(`/repositories/${workspace}/${repository}/issues/${issueId}/comments`, commentData);
             return {
-                content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
             };
         } else {
             throw new McpError(ErrorCode.InvalidParams, 'Issues are only supported on Bitbucket Cloud');
@@ -590,8 +590,8 @@ export class IssueHandler {
     }
 
     async getIssueComment(params: any) {
-        const { repository, issueId, commentId } = params;
-        
+        const {repository, issueId, commentId} = params;
+
         if (!repository || !issueId || !commentId) {
             throw new McpError(ErrorCode.InvalidParams, 'Repository, issue ID, and comment ID are required');
         }
@@ -604,7 +604,7 @@ export class IssueHandler {
 
             const response = await this.api.get(`/repositories/${workspace}/${repository}/issues/${issueId}/comments/${commentId}`);
             return {
-                content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
             };
         } else {
             throw new McpError(ErrorCode.InvalidParams, 'Issues are only supported on Bitbucket Cloud');
@@ -612,8 +612,8 @@ export class IssueHandler {
     }
 
     async updateIssueComment(params: any) {
-        const { repository, issueId, commentId, content } = params;
-        
+        const {repository, issueId, commentId, content} = params;
+
         if (!repository || !issueId || !commentId || !content) {
             throw new McpError(ErrorCode.InvalidParams, 'Repository, issue ID, comment ID, and content are required');
         }
@@ -625,12 +625,12 @@ export class IssueHandler {
             }
 
             const updateData = {
-                content: { raw: content }
+                content: {raw: content}
             };
 
             const response = await this.api.put(`/repositories/${workspace}/${repository}/issues/${issueId}/comments/${commentId}`, updateData);
             return {
-                content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
             };
         } else {
             throw new McpError(ErrorCode.InvalidParams, 'Issues are only supported on Bitbucket Cloud');
@@ -638,8 +638,8 @@ export class IssueHandler {
     }
 
     async deleteIssueComment(params: any) {
-        const { repository, issueId, commentId } = params;
-        
+        const {repository, issueId, commentId} = params;
+
         if (!repository || !issueId || !commentId) {
             throw new McpError(ErrorCode.InvalidParams, 'Repository, issue ID, and comment ID are required');
         }
@@ -652,7 +652,7 @@ export class IssueHandler {
 
             await this.api.delete(`/repositories/${workspace}/${repository}/issues/${issueId}/comments/${commentId}`);
             return {
-                content: [{ type: 'text', text: `Comment ${commentId} deleted successfully` }]
+                content: [{type: 'text', text: `Comment ${commentId} deleted successfully`}]
             };
         } else {
             throw new McpError(ErrorCode.InvalidParams, 'Issues are only supported on Bitbucket Cloud');
@@ -1454,36 +1454,36 @@ export class DiffHandler {
             if (!commitsExist.valid) {
                 return {
                     content: [{
-                        type: 'text', 
+                        type: 'text',
                         text: `Commit verification failed:\n${commitsExist.message}\n\n` +
-                              `This is likely why the diff returned empty. Please ensure:\n` +
-                              `1. Both commits exist in the Bitbucket Cloud repository\n` +
-                              `2. The commits have been pushed to the remote repository\n` +
-                              `3. You have access to view the repository`
+                            `This is likely why the diff returned empty. Please ensure:\n` +
+                            `1. Both commits exist in the Bitbucket Cloud repository\n` +
+                            `2. The commits have been pushed to the remote repository\n` +
+                            `3. You have access to view the repository`
                     }]
                 };
             }
 
             // First try the standard diff endpoint
             const result = await this.tryStandardDiff(workspace, repository, spec, path, context, ignore_whitespace);
-            if (result.success) {
+            if (result.success && result.content) {
                 return result.content;
             }
 
             // If standard diff returns empty, try alternative approaches
             console.log('Standard diff returned empty, trying alternative approaches...');
-            
+
             // Try reversing the commit order (Bitbucket uses opposite order from git diff)
             if (spec.includes('..')) {
                 const [first, second] = spec.split('..');
                 const reversedSpec = `${second}..${first}`;
                 console.log(`Trying reversed spec: ${reversedSpec}`);
-                
+
                 const reversedResult = await this.tryStandardDiff(workspace, repository, reversedSpec, path, context, ignore_whitespace);
                 if (reversedResult.success && reversedResult.content) {
                     return {
                         content: [{
-                            type: 'text', 
+                            type: 'text',
                             text: reversedResult.content.content[0].text
                         }]
                     };
@@ -1496,7 +1496,7 @@ export class DiffHandler {
                 if (compareResult.success && compareResult.content) {
                     return {
                         content: [{
-                            type: 'text', 
+                            type: 'text',
                             text: `Note: Retrieved diff using compare endpoint:\n\n${compareResult.content.content[0].text}`
                         }]
                     };
@@ -1526,10 +1526,10 @@ export class DiffHandler {
                 ],
                 commitVerification: commitsExist
             };
-            
+
             return {
                 content: [{
-                    type: 'text', 
+                    type: 'text',
                     text: `No differences found after trying multiple approaches.\n\nDebug Information:\n${JSON.stringify(debugInfo, null, 2)}`
                 }]
             };
@@ -1565,33 +1565,33 @@ export class DiffHandler {
         try {
             if (spec.includes('..')) {
                 const [first, second] = spec.split('..');
-                
+
                 // Check first commit
                 const firstCommitResponse = await this.api.get(`/repositories/${workspace}/${repository}/commit/${first}`);
                 console.log(`Commit ${first} exists:`, firstCommitResponse.status === 200);
-                
+
                 // Check second commit
                 const secondCommitResponse = await this.api.get(`/repositories/${workspace}/${repository}/commit/${second}`);
                 console.log(`Commit ${second} exists:`, secondCommitResponse.status === 200);
-                
+
                 return {
                     valid: true,
                     message: `Both commits verified: ${first} and ${second} exist in the repository`,
                     commits: {
-                        first: { hash: first, exists: true },
-                        second: { hash: second, exists: true }
+                        first: {hash: first, exists: true},
+                        second: {hash: second, exists: true}
                     }
                 };
             } else {
                 // Single commit
                 const commitResponse = await this.api.get(`/repositories/${workspace}/${repository}/commit/${spec}`);
                 console.log(`Commit ${spec} exists:`, commitResponse.status === 200);
-                
+
                 return {
                     valid: true,
                     message: `Commit verified: ${spec} exists in the repository`,
                     commits: {
-                        single: { hash: spec, exists: true }
+                        single: {hash: spec, exists: true}
                     }
                 };
             }
@@ -1602,13 +1602,13 @@ export class DiffHandler {
                     valid: false,
                     message: `One or more commits not found in repository. This explains the empty diff response.`,
                     commits: {
-                        first: { hash: first, exists: false },
-                        ...(second && { second: { hash: second, exists: false } })
+                        first: {hash: first, exists: false},
+                        ...(second && {second: {hash: second, exists: false}})
                     },
                     error: 'Commits not found (404)'
                 };
             }
-            
+
             return {
                 valid: false,
                 message: `Error verifying commits: ${error.message}`,
@@ -1646,25 +1646,25 @@ export class DiffHandler {
                 };
             }
 
-            return { success: false, content: null };
+            return {success: false, content: null};
         } catch (error: any) {
             console.log('Standard diff failed:', error.message);
             if (error.response?.status === 404) {
-                throw new McpError(ErrorCode.InvalidParams, 
+                throw new McpError(ErrorCode.InvalidParams,
                     `Repository or commits not found. Please verify:\n` +
                     `1. Repository "${workspace}/${repository}" exists\n` +
                     `2. Commits in spec "${spec}" exist in the remote repository\n` +
                     `3. Commits are pushed to Bitbucket Cloud`
                 );
             } else if (error.response?.status === 400) {
-                throw new McpError(ErrorCode.InvalidParams, 
+                throw new McpError(ErrorCode.InvalidParams,
                     `Invalid diff request. Please check:\n` +
                     `1. Spec format is correct (commit1..commit2)\n` +
                     `2. Commit hashes are valid\n` +
                     `3. Path parameter (if used) is valid`
                 );
             }
-            return { success: false, content: null };
+            return {success: false, content: null};
         }
     }
 
@@ -1673,7 +1673,7 @@ export class DiffHandler {
             // Parse the spec to get individual commits
             const [firstCommit, secondCommit] = spec.split('..');
             if (!firstCommit || !secondCommit) {
-                return { success: false, content: null };
+                return {success: false, content: null};
             }
 
             // Try using the compare commits endpoint
@@ -1706,10 +1706,10 @@ export class DiffHandler {
                 };
             }
 
-            return { success: false, content: null };
+            return {success: false, content: null};
         } catch (error: any) {
             console.log('Compare diff failed:', error.message);
-            return { success: false, content: null };
+            return {success: false, content: null};
         }
     }
 }
@@ -1908,7 +1908,8 @@ export class BuildStatusHandler {
 
 // Snippets handler (Cloud only)
 export class SnippetHandler {
-    constructor(private api: AxiosInstance, private config: BitbucketConfig) {}
+    constructor(private api: AxiosInstance, private config: BitbucketConfig) {
+    }
 
     async listSnippets(params: any) {
         if (!this.config.isCloud) {
@@ -1925,11 +1926,11 @@ export class SnippetHandler {
 
         const response = await this.api.get(
             `/snippets/${workspace}`,
-            { params: { role, pagelen: limit } }
+            {params: {role, pagelen: limit}}
         );
 
         return {
-            content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+            content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
         };
     }
 
@@ -1939,7 +1940,7 @@ export class SnippetHandler {
         }
 
         const workspace = params.workspace || this.config.defaultProject;
-        const { snippetId } = params;
+        const {snippetId} = params;
 
         if (!workspace || !snippetId) {
             throw new McpError(ErrorCode.InvalidParams, 'Workspace and snippet ID are required');
@@ -1948,7 +1949,7 @@ export class SnippetHandler {
         const response = await this.api.get(`/snippets/${workspace}/${snippetId}`);
 
         return {
-            content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+            content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
         };
     }
 
@@ -1958,7 +1959,7 @@ export class SnippetHandler {
         }
 
         const workspace = params.workspace || this.config.defaultProject;
-        const { title, isPrivate = true, files } = params;
+        const {title, isPrivate = true, files} = params;
 
         if (!workspace || !title || !files) {
             throw new McpError(ErrorCode.InvalidParams, 'Workspace, title, and files are required');
@@ -1968,7 +1969,7 @@ export class SnippetHandler {
             title,
             is_private: isPrivate,
             files: Object.entries(files).reduce((acc: any, [filename, content]) => {
-                acc[filename] = { content };
+                acc[filename] = {content};
                 return acc;
             }, {})
         };
@@ -1976,7 +1977,7 @@ export class SnippetHandler {
         const response = await this.api.post(`/snippets/${workspace}`, snippetData);
 
         return {
-            content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+            content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
         };
     }
 
@@ -1986,7 +1987,7 @@ export class SnippetHandler {
         }
 
         const workspace = params.workspace || this.config.defaultProject;
-        const { snippetId, title, isPrivate, files } = params;
+        const {snippetId, title, isPrivate, files} = params;
 
         if (!workspace || !snippetId) {
             throw new McpError(ErrorCode.InvalidParams, 'Workspace and snippet ID are required');
@@ -1997,7 +1998,7 @@ export class SnippetHandler {
         if (isPrivate !== undefined) updateData.is_private = isPrivate;
         if (files) {
             updateData.files = Object.entries(files).reduce((acc: any, [filename, content]) => {
-                acc[filename] = { content };
+                acc[filename] = {content};
                 return acc;
             }, {});
         }
@@ -2005,7 +2006,7 @@ export class SnippetHandler {
         const response = await this.api.put(`/snippets/${workspace}/${snippetId}`, updateData);
 
         return {
-            content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+            content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
         };
     }
 
@@ -2015,7 +2016,7 @@ export class SnippetHandler {
         }
 
         const workspace = params.workspace || this.config.defaultProject;
-        const { snippetId } = params;
+        const {snippetId} = params;
 
         if (!workspace || !snippetId) {
             throw new McpError(ErrorCode.InvalidParams, 'Workspace and snippet ID are required');
@@ -2024,7 +2025,7 @@ export class SnippetHandler {
         await this.api.delete(`/snippets/${workspace}/${snippetId}`);
 
         return {
-            content: [{ type: 'text', text: `Snippet ${snippetId} deleted successfully` }]
+            content: [{type: 'text', text: `Snippet ${snippetId} deleted successfully`}]
         };
     }
 
@@ -2034,7 +2035,7 @@ export class SnippetHandler {
         }
 
         const workspace = params.workspace || this.config.defaultProject;
-        const { snippetId, filename } = params;
+        const {snippetId, filename} = params;
 
         if (!workspace || !snippetId || !filename) {
             throw new McpError(ErrorCode.InvalidParams, 'Workspace, snippet ID, and filename are required');
@@ -2043,18 +2044,19 @@ export class SnippetHandler {
         const response = await this.api.get(`/snippets/${workspace}/${snippetId}/files/${filename}`);
 
         return {
-            content: [{ type: 'text', text: response.data }]
+            content: [{type: 'text', text: response.data}]
         };
     }
 }
 
 // Branch restrictions handler
 export class BranchRestrictionHandler {
-    constructor(private api: AxiosInstance, private config: BitbucketConfig) {}
+    constructor(private api: AxiosInstance, private config: BitbucketConfig) {
+    }
 
     async listBranchRestrictions(params: any) {
-        const { repository, kind } = params;
-        
+        const {repository, kind} = params;
+
         if (!repository) {
             throw new McpError(ErrorCode.InvalidParams, 'Repository is required');
         }
@@ -2069,10 +2071,10 @@ export class BranchRestrictionHandler {
             const queryParams: any = {};
             if (kind) queryParams.kind = kind;
 
-            const response = await this.api.get(url, { params: queryParams });
+            const response = await this.api.get(url, {params: queryParams});
 
             return {
-                content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
             };
         } else {
             const project = params.project || this.config.defaultProject;
@@ -2083,14 +2085,14 @@ export class BranchRestrictionHandler {
             const response = await this.api.get(`/projects/${project}/repos/${repository}/restrictions`);
 
             return {
-                content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
             };
         }
     }
 
     async createBranchRestriction(params: any) {
-        const { repository, kind, pattern, userIds, groupIds } = params;
-        
+        const {repository, kind, pattern, userIds, groupIds} = params;
+
         if (!repository || !kind || !pattern) {
             throw new McpError(ErrorCode.InvalidParams, 'Repository, kind, and pattern are required');
         }
@@ -2107,10 +2109,10 @@ export class BranchRestrictionHandler {
             };
 
             if (userIds?.length) {
-                restrictionData.users = userIds.map((id: string) => ({ uuid: id }));
+                restrictionData.users = userIds.map((id: string) => ({uuid: id}));
             }
             if (groupIds?.length) {
-                restrictionData.groups = groupIds.map((id: string) => ({ uuid: id }));
+                restrictionData.groups = groupIds.map((id: string) => ({uuid: id}));
             }
 
             const response = await this.api.post(
@@ -2119,7 +2121,7 @@ export class BranchRestrictionHandler {
             );
 
             return {
-                content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
             };
         } else {
             const project = params.project || this.config.defaultProject;
@@ -2131,15 +2133,15 @@ export class BranchRestrictionHandler {
                 type: kind,
                 matcher: {
                     id: pattern,
-                    type: { id: 'PATTERN' }
+                    type: {id: 'PATTERN'}
                 }
             };
 
             if (userIds?.length) {
-                restrictionData.users = userIds.map((id: string) => ({ name: id }));
+                restrictionData.users = userIds.map((id: string) => ({name: id}));
             }
             if (groupIds?.length) {
-                restrictionData.groups = groupIds.map((id: string) => ({ name: id }));
+                restrictionData.groups = groupIds.map((id: string) => ({name: id}));
             }
 
             const response = await this.api.post(
@@ -2148,14 +2150,14 @@ export class BranchRestrictionHandler {
             );
 
             return {
-                content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
             };
         }
     }
 
     async getBranchRestriction(params: any) {
-        const { repository, restrictionId } = params;
-        
+        const {repository, restrictionId} = params;
+
         if (!repository || !restrictionId) {
             throw new McpError(ErrorCode.InvalidParams, 'Repository and restriction ID are required');
         }
@@ -2171,7 +2173,7 @@ export class BranchRestrictionHandler {
             );
 
             return {
-                content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
             };
         } else {
             const project = params.project || this.config.defaultProject;
@@ -2184,14 +2186,14 @@ export class BranchRestrictionHandler {
             );
 
             return {
-                content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
             };
         }
     }
 
     async updateBranchRestriction(params: any) {
-        const { repository, restrictionId, kind, pattern, userIds, groupIds } = params;
-        
+        const {repository, restrictionId, kind, pattern, userIds, groupIds} = params;
+
         if (!repository || !restrictionId) {
             throw new McpError(ErrorCode.InvalidParams, 'Repository and restriction ID are required');
         }
@@ -2206,10 +2208,10 @@ export class BranchRestrictionHandler {
             if (kind) updateData.kind = kind;
             if (pattern) updateData.pattern = pattern;
             if (userIds?.length) {
-                updateData.users = userIds.map((id: string) => ({ uuid: id }));
+                updateData.users = userIds.map((id: string) => ({uuid: id}));
             }
             if (groupIds?.length) {
-                updateData.groups = groupIds.map((id: string) => ({ uuid: id }));
+                updateData.groups = groupIds.map((id: string) => ({uuid: id}));
             }
 
             const response = await this.api.put(
@@ -2218,7 +2220,7 @@ export class BranchRestrictionHandler {
             );
 
             return {
-                content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
             };
         } else {
             const project = params.project || this.config.defaultProject;
@@ -2231,14 +2233,14 @@ export class BranchRestrictionHandler {
             if (pattern) {
                 updateData.matcher = {
                     id: pattern,
-                    type: { id: 'PATTERN' }
+                    type: {id: 'PATTERN'}
                 };
             }
             if (userIds?.length) {
-                updateData.users = userIds.map((id: string) => ({ name: id }));
+                updateData.users = userIds.map((id: string) => ({name: id}));
             }
             if (groupIds?.length) {
-                updateData.groups = groupIds.map((id: string) => ({ name: id }));
+                updateData.groups = groupIds.map((id: string) => ({name: id}));
             }
 
             const response = await this.api.put(
@@ -2247,14 +2249,14 @@ export class BranchRestrictionHandler {
             );
 
             return {
-                content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
             };
         }
     }
 
     async deleteBranchRestriction(params: any) {
-        const { repository, restrictionId } = params;
-        
+        const {repository, restrictionId} = params;
+
         if (!repository || !restrictionId) {
             throw new McpError(ErrorCode.InvalidParams, 'Repository and restriction ID are required');
         }
@@ -2270,7 +2272,7 @@ export class BranchRestrictionHandler {
             );
 
             return {
-                content: [{ type: 'text', text: `Branch restriction ${restrictionId} deleted successfully` }]
+                content: [{type: 'text', text: `Branch restriction ${restrictionId} deleted successfully`}]
             };
         } else {
             const project = params.project || this.config.defaultProject;
@@ -2283,7 +2285,7 @@ export class BranchRestrictionHandler {
             );
 
             return {
-                content: [{ type: 'text', text: `Branch restriction ${restrictionId} deleted successfully` }]
+                content: [{type: 'text', text: `Branch restriction ${restrictionId} deleted successfully`}]
             };
         }
     }
@@ -2291,11 +2293,12 @@ export class BranchRestrictionHandler {
 
 // Downloads handler (Cloud and Server)
 export class DownloadHandler {
-    constructor(private api: AxiosInstance, private config: BitbucketConfig) {}
+    constructor(private api: AxiosInstance, private config: BitbucketConfig) {
+    }
 
     async listDownloads(params: any) {
-        const { repository } = params;
-        
+        const {repository} = params;
+
         if (!repository) {
             throw new McpError(ErrorCode.InvalidParams, 'Repository is required');
         }
@@ -2308,7 +2311,7 @@ export class DownloadHandler {
 
             const response = await this.api.get(`/repositories/${workspace}/${repository}/downloads`);
             return {
-                content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
             };
         } else {
             const project = params.project || this.config.defaultProject;
@@ -2319,14 +2322,14 @@ export class DownloadHandler {
             // Bitbucket Server uses artifacts API
             const response = await this.api.get(`/projects/${project}/repos/${repository}/artifacts`);
             return {
-                content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
             };
         }
     }
 
     async uploadDownload(params: any) {
-        const { repository, filename, content } = params;
-        
+        const {repository, filename, content} = params;
+
         if (!repository || !filename || !content) {
             throw new McpError(ErrorCode.InvalidParams, 'Repository, filename, and content are required');
         }
@@ -2343,11 +2346,11 @@ export class DownloadHandler {
             const response = await this.api.post(
                 `/repositories/${workspace}/${repository}/downloads`,
                 formData,
-                { headers: { 'Content-Type': 'multipart/form-data' } }
+                {headers: {'Content-Type': 'multipart/form-data'}}
             );
 
             return {
-                content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
             };
         } else {
             const project = params.project || this.config.defaultProject;
@@ -2361,8 +2364,8 @@ export class DownloadHandler {
     }
 
     async deleteDownload(params: any) {
-        const { repository, filename } = params;
-        
+        const {repository, filename} = params;
+
         if (!repository || !filename) {
             throw new McpError(ErrorCode.InvalidParams, 'Repository and filename are required');
         }
@@ -2375,7 +2378,7 @@ export class DownloadHandler {
 
             await this.api.delete(`/repositories/${workspace}/${repository}/downloads/${filename}`);
             return {
-                content: [{ type: 'text', text: `Download ${filename} deleted successfully` }]
+                content: [{type: 'text', text: `Download ${filename} deleted successfully`}]
             };
         } else {
             const project = params.project || this.config.defaultProject;
@@ -2390,11 +2393,12 @@ export class DownloadHandler {
 
 // Fork handler
 export class ForkHandler {
-    constructor(private api: AxiosInstance, private config: BitbucketConfig) {}
+    constructor(private api: AxiosInstance, private config: BitbucketConfig) {
+    }
 
     async forkRepository(params: any) {
-        const { repository, newName, isPrivate } = params;
-        
+        const {repository, newName, isPrivate} = params;
+
         if (!repository) {
             throw new McpError(ErrorCode.InvalidParams, 'Repository is required');
         }
@@ -2402,7 +2406,7 @@ export class ForkHandler {
         if (this.config.isCloud) {
             const workspace = params.workspace || this.config.defaultProject;
             const targetWorkspace = params.targetWorkspace || workspace;
-            
+
             if (!workspace) {
                 throw new McpError(ErrorCode.InvalidParams, 'Workspace is required for Bitbucket Cloud');
             }
@@ -2410,7 +2414,7 @@ export class ForkHandler {
             const forkData: any = {};
             if (newName) forkData.name = newName;
             if (isPrivate !== undefined) forkData.is_private = isPrivate;
-            if (targetWorkspace !== workspace) forkData.workspace = { slug: targetWorkspace };
+            if (targetWorkspace !== workspace) forkData.workspace = {slug: targetWorkspace};
 
             const response = await this.api.post(
                 `/repositories/${workspace}/${repository}/forks`,
@@ -2418,19 +2422,19 @@ export class ForkHandler {
             );
 
             return {
-                content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
             };
         } else {
             const project = params.project || this.config.defaultProject;
             const targetProject = params.targetProject || project;
-            
+
             if (!project) {
                 throw new McpError(ErrorCode.InvalidParams, 'Project is required for Bitbucket Server');
             }
 
             const forkData: any = {
                 name: newName || repository,
-                project: { key: targetProject }
+                project: {key: targetProject}
             };
 
             const response = await this.api.post(
@@ -2439,14 +2443,14 @@ export class ForkHandler {
             );
 
             return {
-                content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
             };
         }
     }
 
     async listForks(params: any) {
-        const { repository } = params;
-        
+        const {repository} = params;
+
         if (!repository) {
             throw new McpError(ErrorCode.InvalidParams, 'Repository is required');
         }
@@ -2459,7 +2463,7 @@ export class ForkHandler {
 
             const response = await this.api.get(`/repositories/${workspace}/${repository}/forks`);
             return {
-                content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
             };
         } else {
             const project = params.project || this.config.defaultProject;
@@ -2469,7 +2473,7 @@ export class ForkHandler {
 
             const response = await this.api.get(`/projects/${project}/repos/${repository}/forks`);
             return {
-                content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
             };
         }
     }
@@ -2477,23 +2481,24 @@ export class ForkHandler {
 
 // Deployment/Environment handler (Cloud specific)
 export class DeploymentHandler {
-    constructor(private api: AxiosInstance, private config: BitbucketConfig) {}
+    constructor(private api: AxiosInstance, private config: BitbucketConfig) {
+    }
 
     async listDeployments(params: any) {
         if (!this.config.isCloud) {
             throw new McpError(ErrorCode.InvalidParams, 'Deployments are only available in Bitbucket Cloud');
         }
 
-        const { repository } = params;
+        const {repository} = params;
         const workspace = params.workspace || this.config.defaultProject;
-        
+
         if (!workspace || !repository) {
             throw new McpError(ErrorCode.InvalidParams, 'Workspace and repository are required');
         }
 
         const response = await this.api.get(`/repositories/${workspace}/${repository}/deployments`);
         return {
-            content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+            content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
         };
     }
 
@@ -2502,16 +2507,16 @@ export class DeploymentHandler {
             throw new McpError(ErrorCode.InvalidParams, 'Deployments are only available in Bitbucket Cloud');
         }
 
-        const { repository, deploymentId } = params;
+        const {repository, deploymentId} = params;
         const workspace = params.workspace || this.config.defaultProject;
-        
+
         if (!workspace || !repository || !deploymentId) {
             throw new McpError(ErrorCode.InvalidParams, 'Workspace, repository, and deployment ID are required');
         }
 
         const response = await this.api.get(`/repositories/${workspace}/${repository}/deployments/${deploymentId}`);
         return {
-            content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+            content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
         };
     }
 
@@ -2520,16 +2525,16 @@ export class DeploymentHandler {
             throw new McpError(ErrorCode.InvalidParams, 'Environments are only available in Bitbucket Cloud');
         }
 
-        const { repository } = params;
+        const {repository} = params;
         const workspace = params.workspace || this.config.defaultProject;
-        
+
         if (!workspace || !repository) {
             throw new McpError(ErrorCode.InvalidParams, 'Workspace and repository are required');
         }
 
         const response = await this.api.get(`/repositories/${workspace}/${repository}/environments`);
         return {
-            content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+            content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
         };
     }
 
@@ -2538,9 +2543,9 @@ export class DeploymentHandler {
             throw new McpError(ErrorCode.InvalidParams, 'Environments are only available in Bitbucket Cloud');
         }
 
-        const { repository, name, type, slug } = params;
+        const {repository, name, type, slug} = params;
         const workspace = params.workspace || this.config.defaultProject;
-        
+
         if (!workspace || !repository || !name || !type) {
             throw new McpError(ErrorCode.InvalidParams, 'Workspace, repository, name, and type are required');
         }
@@ -2557,7 +2562,7 @@ export class DeploymentHandler {
         );
 
         return {
-            content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+            content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
         };
     }
 
@@ -2566,9 +2571,9 @@ export class DeploymentHandler {
             throw new McpError(ErrorCode.InvalidParams, 'Environments are only available in Bitbucket Cloud');
         }
 
-        const { repository, environmentUuid, name, type } = params;
+        const {repository, environmentUuid, name, type} = params;
         const workspace = params.workspace || this.config.defaultProject;
-        
+
         if (!workspace || !repository || !environmentUuid) {
             throw new McpError(ErrorCode.InvalidParams, 'Workspace, repository, and environment UUID are required');
         }
@@ -2583,7 +2588,7 @@ export class DeploymentHandler {
         );
 
         return {
-            content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+            content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
         };
     }
 
@@ -2592,27 +2597,28 @@ export class DeploymentHandler {
             throw new McpError(ErrorCode.InvalidParams, 'Environments are only available in Bitbucket Cloud');
         }
 
-        const { repository, environmentUuid } = params;
+        const {repository, environmentUuid} = params;
         const workspace = params.workspace || this.config.defaultProject;
-        
+
         if (!workspace || !repository || !environmentUuid) {
             throw new McpError(ErrorCode.InvalidParams, 'Workspace, repository, and environment UUID are required');
         }
 
         await this.api.delete(`/repositories/${workspace}/${repository}/environments/${environmentUuid}`);
         return {
-            content: [{ type: 'text', text: `Environment ${environmentUuid} deleted successfully` }]
+            content: [{type: 'text', text: `Environment ${environmentUuid} deleted successfully`}]
         };
     }
 }
 
 // Commit comments handler
 export class CommitCommentHandler {
-    constructor(private api: AxiosInstance, private config: BitbucketConfig) {}
+    constructor(private api: AxiosInstance, private config: BitbucketConfig) {
+    }
 
     async listCommitComments(params: any) {
-        const { repository, commitId } = params;
-        
+        const {repository, commitId} = params;
+
         if (!repository || !commitId) {
             throw new McpError(ErrorCode.InvalidParams, 'Repository and commit ID are required');
         }
@@ -2625,7 +2631,7 @@ export class CommitCommentHandler {
 
             const response = await this.api.get(`/repositories/${workspace}/${repository}/commit/${commitId}/comments`);
             return {
-                content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
             };
         } else {
             const project = params.project || this.config.defaultProject;
@@ -2635,14 +2641,14 @@ export class CommitCommentHandler {
 
             const response = await this.api.get(`/projects/${project}/repos/${repository}/commits/${commitId}/comments`);
             return {
-                content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
             };
         }
     }
 
     async createCommitComment(params: any) {
-        const { repository, commitId, content, lineNumber, filename } = params;
-        
+        const {repository, commitId, content, lineNumber, filename} = params;
+
         if (!repository || !commitId || !content) {
             throw new McpError(ErrorCode.InvalidParams, 'Repository, commit ID, and content are required');
         }
@@ -2653,7 +2659,7 @@ export class CommitCommentHandler {
                 throw new McpError(ErrorCode.InvalidParams, 'Workspace is required for Bitbucket Cloud');
             }
 
-            const commentData: any = { content: { raw: content } };
+            const commentData: any = {content: {raw: content}};
             if (filename) {
                 commentData.inline = {
                     path: filename,
@@ -2667,7 +2673,7 @@ export class CommitCommentHandler {
             );
 
             return {
-                content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
             };
         } else {
             const project = params.project || this.config.defaultProject;
@@ -2675,7 +2681,7 @@ export class CommitCommentHandler {
                 throw new McpError(ErrorCode.InvalidParams, 'Project is required for Bitbucket Server');
             }
 
-            const commentData: any = { text: content };
+            const commentData: any = {text: content};
             if (filename && lineNumber) {
                 commentData.anchor = {
                     path: filename,
@@ -2690,14 +2696,14 @@ export class CommitCommentHandler {
             );
 
             return {
-                content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
             };
         }
     }
 
     async updateCommitComment(params: any) {
-        const { repository, commitId, commentId, content } = params;
-        
+        const {repository, commitId, commentId, content} = params;
+
         if (!repository || !commitId || !commentId || !content) {
             throw new McpError(ErrorCode.InvalidParams, 'Repository, commit ID, comment ID, and content are required');
         }
@@ -2708,14 +2714,14 @@ export class CommitCommentHandler {
                 throw new McpError(ErrorCode.InvalidParams, 'Workspace is required for Bitbucket Cloud');
             }
 
-            const updateData = { content: { raw: content } };
+            const updateData = {content: {raw: content}};
             const response = await this.api.put(
                 `/repositories/${workspace}/${repository}/commit/${commitId}/comments/${commentId}`,
                 updateData
             );
 
             return {
-                content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
             };
         } else {
             const project = params.project || this.config.defaultProject;
@@ -2723,21 +2729,21 @@ export class CommitCommentHandler {
                 throw new McpError(ErrorCode.InvalidParams, 'Project is required for Bitbucket Server');
             }
 
-            const updateData = { text: content };
+            const updateData = {text: content};
             const response = await this.api.put(
                 `/projects/${project}/repos/${repository}/commits/${commitId}/comments/${commentId}`,
                 updateData
             );
 
             return {
-                content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
             };
         }
     }
 
     async deleteCommitComment(params: any) {
-        const { repository, commitId, commentId } = params;
-        
+        const {repository, commitId, commentId} = params;
+
         if (!repository || !commitId || !commentId) {
             throw new McpError(ErrorCode.InvalidParams, 'Repository, commit ID, and comment ID are required');
         }
@@ -2750,7 +2756,7 @@ export class CommitCommentHandler {
 
             await this.api.delete(`/repositories/${workspace}/${repository}/commit/${commitId}/comments/${commentId}`);
             return {
-                content: [{ type: 'text', text: `Comment ${commentId} deleted successfully` }]
+                content: [{type: 'text', text: `Comment ${commentId} deleted successfully`}]
             };
         } else {
             const project = params.project || this.config.defaultProject;
@@ -2760,14 +2766,14 @@ export class CommitCommentHandler {
 
             await this.api.delete(`/projects/${project}/repos/${repository}/commits/${commitId}/comments/${commentId}`);
             return {
-                content: [{ type: 'text', text: `Comment ${commentId} deleted successfully` }]
+                content: [{type: 'text', text: `Comment ${commentId} deleted successfully`}]
             };
         }
     }
 
     async getCommitComment(params: any) {
-        const { repository, commitId, commentId } = params;
-        
+        const {repository, commitId, commentId} = params;
+
         if (!repository || !commitId || !commentId) {
             throw new McpError(ErrorCode.InvalidParams, 'Repository, commit ID, and comment ID are required');
         }
@@ -2780,7 +2786,7 @@ export class CommitCommentHandler {
 
             const response = await this.api.get(`/repositories/${workspace}/${repository}/commit/${commitId}/comments/${commentId}`);
             return {
-                content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
             };
         } else {
             const project = params.project || this.config.defaultProject;
@@ -2790,7 +2796,7 @@ export class CommitCommentHandler {
 
             const response = await this.api.get(`/projects/${project}/repos/${repository}/commits/${commitId}/comments/${commentId}`);
             return {
-                content: [{ type: 'text', text: JSON.stringify(response.data, null, 2) }]
+                content: [{type: 'text', text: JSON.stringify(response.data, null, 2)}]
             };
         }
     }

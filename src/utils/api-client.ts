@@ -19,26 +19,79 @@ const logger = winston.createLogger({
     ]
 });
 
-export function createApiClient(config: BitbucketConfig): AxiosInstance {
-    const apiPath = config.isCloud ? '/2.0' : '/rest/api/1.0';
-    const baseURL = config.isCloud ? 'https://api.bitbucket.org/2.0' : `${config.baseUrl}${apiPath}`;
+/**
+ * Determines the correct API base URL based on platform type
+ */
+function getApiBaseUrl(config: BitbucketConfig): string {
+    switch (config.platformType) {
+        case 'cloud':
+            return 'https://api.bitbucket.org/2.0';
 
-    // Setup authentication based on platform and available credentials
+        case 'datacenter':
+        case 'server':
+            // Both Data Center and Server use the same REST API path structure
+            return `${config.baseUrl}/rest/api/1.0`;
+
+        default:
+            // Fallback for backward compatibility
+            return config.isCloud ? 'https://api.bitbucket.org/2.0' : `${config.baseUrl}/rest/api/1.0`;
+    }
+}
+
+/**
+ * Sets up authentication configuration based on platform and available credentials
+ */
+function setupAuthentication(config: BitbucketConfig): { headers?: any; auth?: any } {
     const authConfig: { headers?: any; auth?: any } = {headers: {}, auth: undefined};
 
-    // Bitbucket Server or Cloud: Support Bearer tokens
     if (config.token) {
-        // Personal Access Token (recommended)
-        authConfig.headers = {Authorization: `Bearer ${config.token}`};
+        switch (config.platformType) {
+            case 'cloud':
+                // Bitbucket Cloud: App Passwords use Basic Auth with username + app password
+                if (config.username) {
+                    authConfig.auth = {username: config.username, password: config.token};
+                } else {
+                    // Fallback to Bearer if no username (though less common for Cloud)
+                    authConfig.headers = {Authorization: `Bearer ${config.token}`};
+                }
+                break;
+
+            case 'datacenter':
+                // Bitbucket Data Center: Supports both Personal Access Tokens and HTTP Access Tokens
+                // HTTP Access Tokens are Bearer tokens, Personal Access Tokens can be used as Bearer
+                authConfig.headers = {Authorization: `Bearer ${config.token}`};
+                break;
+
+            case 'server':
+                // Bitbucket Server: Personal Access Tokens as Bearer tokens
+                authConfig.headers = {Authorization: `Bearer ${config.token}`};
+                break;
+
+            default:
+                // Backward compatibility fallback
+                authConfig.headers = {Authorization: `Bearer ${config.token}`};
+        }
     } else if (config.username && config.password) {
-        // Basic authentication
+        // Basic authentication for all platforms
         authConfig.auth = {username: config.username, password: config.password};
     }
+
+    return authConfig;
+}
+
+export function createApiClient(config: BitbucketConfig): AxiosInstance {
+    const baseURL = getApiBaseUrl(config);
+    const authConfig = setupAuthentication(config);
 
     const apiClient = axios.create({
         baseURL,
         ...authConfig,
-        timeout: 30000 // 30 second timeout
+        timeout: 30000, // 30 second timeout
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            ...(authConfig.headers || {})
+        }
     });
 
     // Add request interceptor for verbose logging
@@ -104,12 +157,24 @@ export function createApiClient(config: BitbucketConfig): AxiosInstance {
         }
     );
 
+    const platformName = config.platformType === 'datacenter' ? 'Bitbucket Data Center' :
+        config.platformType === 'server' ? 'Bitbucket Server' :
+            'Bitbucket Cloud';
+
+    const authType = config.token
+        ? (config.platformType === 'cloud' && config.username ? 'App Password' : 'Bearer Token')
+        : 'Basic Auth';
+
     logger.info('🔧 API Client Created', {
+        platform: platformName,
+        platformType: config.platformType,
         baseURL,
         isCloud: config.isCloud,
         hasToken: !!config.token,
         hasBasicAuth: !!(config.username && config.password),
-        authType: config.token ? 'Bearer Token' : 'Basic Auth'
+        authType,
+        version: config.version,
+        features: config.features
     });
 
     return apiClient;

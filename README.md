@@ -1,10 +1,10 @@
 # Bitbucket MCP Server
 
-A comprehensive Model Context Protocol (MCP) server for Bitbucket Cloud and Bitbucket Server integration. This server provides extensive functionality to interact with Bitbucket repositories, including pull requests, branches, commits, issues, file operations, webhooks, and much more.
+A comprehensive Model Context Protocol (MCP) server for **Bitbucket Cloud**, **Bitbucket Data Center**, and **Bitbucket Server** integration. This server provides extensive functionality to interact with Bitbucket repositories, including pull requests, branches, commits, issues, file operations, webhooks, and much more.
 
 ## 🌟 **Comprehensive Feature Set**
 
-This MCP server provides **50+ tools** covering virtually every aspect of Bitbucket interaction, supporting both **Bitbucket Cloud** and **Bitbucket Server**:
+This MCP server provides **50+ tools** covering virtually every aspect of Bitbucket interaction, supporting **Bitbucket Cloud**, **Bitbucket Data Center**, and **Bitbucket Server**:
 
 ### 📋 **Project & Repository Management**
 - **Project/Workspace Operations**: List and explore projects (Server) or workspaces (Cloud)
@@ -67,7 +67,10 @@ This MCP server provides **50+ tools** covering virtually every aspect of Bitbuc
 ### **Prerequisites**
 - Node.js 18+ 
 - npm or yarn
-- Bitbucket Cloud account or Bitbucket Server instance
+- One of:
+  - Bitbucket Cloud account
+  - Bitbucket Data Center instance (7.0+)
+  - Bitbucket Server instance
 
 ### **Installation**
 ```bash
@@ -89,22 +92,28 @@ Configure the server using environment variables:
 
 ```bash
 # Required: Bitbucket instance URL
-BITBUCKET_URL=https://api.bitbucket.org/2.0  # For Bitbucket Cloud
+BITBUCKET_URL=https://api.bitbucket.org      # For Bitbucket Cloud
 # OR
-BITBUCKET_URL=https://your-server.com        # For Bitbucket Server
+BITBUCKET_URL=https://your-datacenter.com   # For Bitbucket Data Center
+# OR  
+BITBUCKET_URL=https://your-server.com       # For Bitbucket Server
 
 # Authentication (choose one method)
-# Method 1: Personal Access Token (recommended)
+# Method 1: Personal Access Token / HTTP Access Token (recommended)
 BITBUCKET_TOKEN=your_personal_access_token
 
-# Method 2: Username + App Password (Cloud) or Password (Server)
+# Method 2: Username + App Password (Cloud) or Password (Server/DC)
 BITBUCKET_USERNAME=your_username
 BITBUCKET_PASSWORD=your_app_password_or_password
 
 # Optional: Default project/workspace (reduces need to specify in each call)
-BITBUCKET_DEFAULT_PROJECT=PROJECT_KEY      # For Server
+BITBUCKET_DEFAULT_PROJECT=PROJECT_KEY      # For Server/Data Center
 # OR
 BITBUCKET_DEFAULT_PROJECT=workspace_name   # For Cloud
+
+# Optional: Platform and version detection (for advanced setups)
+BITBUCKET_PLATFORM_TYPE=datacenter         # Force platform type: cloud|server|datacenter
+BITBUCKET_VERSION=8.5.0                    # Your Bitbucket version (helps with feature detection)
 ```
 
 #### **Bitbucket Cloud Setup**
@@ -118,10 +127,30 @@ BITBUCKET_DEFAULT_PROJECT=workspace_name   # For Cloud
    - Your workspace name is in the URL: `https://bitbucket.org/workspace-name/`
    - Use this as `BITBUCKET_DEFAULT_PROJECT`
 
+#### **Bitbucket Data Center Setup**
+1. **Create Personal Access Token**:
+   - Go to Profile > Personal access tokens > Create token
+   - Grant permissions: `Repository admin`, `Pull request admin`, `Project admin`
+   - Use this as `BITBUCKET_TOKEN`
+
+2. **Or Create HTTP Access Token** (Data Center 7.0+):
+   - Go to Administration > HTTP access tokens > Create token
+   - Grant appropriate permissions for your use case
+   - Use this as `BITBUCKET_TOKEN`
+
+3. **Get Project Key**:
+   - Project key is shown in your Data Center project settings
+   - Use this as `BITBUCKET_DEFAULT_PROJECT`
+
+4. **Network Configuration**:
+   - Ensure your Data Center instance is accessible from where you run the MCP server
+   - Configure VPN if required
+   - Verify firewall rules allow HTTP/HTTPS access
+
 #### **Bitbucket Server Setup**
 1. **Create Personal Access Token**:
    - Go to Profile > Personal access tokens > Create token
-   - Grant appropriate permissions for repositories
+   - Grant appropriate permissions for repositories and pull requests
    - Use this as `BITBUCKET_TOKEN`
 
 2. **Get Project Key**:
@@ -132,6 +161,7 @@ BITBUCKET_DEFAULT_PROJECT=workspace_name   # For Cloud
 
 Add to your MCP client configuration (e.g., Cline, Claude Desktop):
 
+#### **For Bitbucket Cloud:**
 ```json
 {
   "mcpServers": {
@@ -139,9 +169,46 @@ Add to your MCP client configuration (e.g., Cline, Claude Desktop):
       "command": "node",
       "args": ["/path/to/bitbucket-server-mcp-server/build/index.js"],
       "env": {
-        "BITBUCKET_URL": "https://api.bitbucket.org/2.0",
-        "BITBUCKET_TOKEN": "your_token_here",
-        "BITBUCKET_DEFAULT_PROJECT": "your_workspace_or_project"
+        "BITBUCKET_URL": "https://api.bitbucket.org",
+        "BITBUCKET_TOKEN": "your_app_password_here",
+        "BITBUCKET_USERNAME": "your_username",
+        "BITBUCKET_DEFAULT_PROJECT": "your_workspace_name"
+      }
+    }
+  }
+}
+```
+
+#### **For Bitbucket Data Center:**
+```json
+{
+  "mcpServers": {
+    "bitbucket": {
+      "command": "node", 
+      "args": ["/path/to/bitbucket-server-mcp-server/build/index.js"],
+      "env": {
+        "BITBUCKET_URL": "https://your-datacenter.company.com",
+        "BITBUCKET_TOKEN": "your_personal_or_http_access_token",
+        "BITBUCKET_DEFAULT_PROJECT": "YOUR_PROJECT_KEY",
+        "BITBUCKET_PLATFORM_TYPE": "datacenter",
+        "BITBUCKET_VERSION": "8.5.0"
+      }
+    }
+  }
+}
+```
+
+#### **For Bitbucket Server:**
+```json
+{
+  "mcpServers": {
+    "bitbucket": {
+      "command": "node",
+      "args": ["/path/to/bitbucket-server-mcp-server/build/index.js"],
+      "env": {
+        "BITBUCKET_URL": "https://your-server.company.com",
+        "BITBUCKET_TOKEN": "your_personal_access_token",
+        "BITBUCKET_DEFAULT_PROJECT": "YOUR_PROJECT_KEY"
       }
     }
   }
@@ -448,87 +515,20 @@ Create a new tag for releases.
 Arguments: repository, tagName, [project/workspace]?, commitId?, message?
 ```
 
-### **Build Status Management**
+### **Platform-Specific Features**
 
-#### `list_build_statuses`
-List build statuses for a commit.
-```
-Arguments: repository, commitId, [project/workspace]?
-```
+#### **Bitbucket Cloud Only:**
+- `list_pipelines`, `get_pipeline`, `trigger_pipeline`, `stop_pipeline` - CI/CD pipeline management
+- `list_snippets`, `get_snippet`, `create_snippet` - Code snippet sharing
+- `list_deployments`, `list_environments` - Deployment environment management
 
-#### `create_build_status`
-Report CI/CD pipeline results.
-```
-Arguments: repository, commitId, state, key, [project/workspace]?, name?, url?, description?
-```
+#### **Server/Data Center Only:**
+- `get_build_status`, `set_build_status` - Build status reporting
 
-### **Default Reviewers**
-
-#### `list_default_reviewers`
-List default reviewers for a repository.
-```
-Arguments: repository, [project/workspace]?
-```
-
-#### `add_default_reviewer`
-Add a default reviewer to repository.
-```
-Arguments: repository, username, [project/workspace]?
-```
-
-#### `remove_default_reviewer`
-Remove a default reviewer from repository.
-```
-Arguments: repository, username, [project/workspace]?
-```
-
-### **Webhook Integration**
-
-#### `list_webhooks`
-List all webhooks for a repository.
-```
-Arguments: repository, [project/workspace]?
-```
-
-#### `create_webhook`
-Create a new webhook for automation.
-```
-Arguments: repository, url, events, [project/workspace]?, description?, active?
-```
-
-#### `delete_webhook`
-Delete a webhook from repository.
-```
-Arguments: repository, webhookId, [project/workspace]?
-```
-
-### **Code Snippets** (Cloud Only)
-
-#### `list_snippets`
-List code snippets.
-```
-Arguments: workspace?, limit?, start?
-```
-
-#### `create_snippet`
-Create a new code snippet.
-```
-Arguments: title, files, isPrivate?
-```
-
-#### `get_snippet`
-Get details of a specific snippet.
-```
-Arguments: snippetId, workspace?
-```
-
-### **User Operations**
-
-#### `get_user`
-Get user profile information.
-```
-Arguments: username?
-```
+#### **Data Center Enhanced Features:**
+- HTTP Access Token support for enhanced security
+- Advanced enterprise features and clustering support
+- Enhanced API performance and scalability
 
 ## 🔧 **Advanced Usage Examples**
 
@@ -557,13 +557,7 @@ await addComment({
   text: "LGTM! Just one small suggestion..."
 });
 
-// 4. Check build status
-await listBuildStatuses({
-  repository: "my-repo",
-  commitId: "abc123def"
-});
-
-// 5. Merge when ready
+// 4. Merge when ready
 await mergePullRequest({
   repository: "my-repo",
   prId: 123,
@@ -571,102 +565,158 @@ await mergePullRequest({
 });
 ```
 
-### **Repository Management**
+### **Data Center Enterprise Workflow**
 ```javascript
-// Create and configure repository
+// Enterprise repository setup with advanced features
 await createRepository({
-  name: "new-project",
-  description: "My awesome project",
+  name: "enterprise-project",
+  description: "Mission-critical enterprise application",
   isPrivate: true,
   hasIssues: true
 });
 
-// Set up branch protection
+// Set up enterprise-grade branch protection
 await createBranchRestriction({
-  repository: "new-project",
+  repository: "enterprise-project",
   kind: "require_approvals",
   pattern: "main",
-  users: ["admin1", "admin2"]
+  users: ["tech-lead", "security-team"],
+  groups: ["senior-developers"]
 });
 
-// Add default reviewers
-await addDefaultReviewer({
-  repository: "new-project", 
-  username: "team-lead"
-});
-
-// Configure webhooks
-await createWebhook({
-  repository: "new-project",
-  url: "https://ci.company.com/webhook",
-  events: ["repo:push", "pullrequest:created"]
-});
-```
-
-### **Code Exploration**
-```javascript
-// Search for specific code
-await searchCode({
-  repository: "my-repo",
-  query: "function authenticate",
-  type: "code"
-});
-
-// Get file content
-await getFileContent({
-  repository: "my-repo", 
-  path: "src/auth.js",
-  branch: "develop"
-});
-
-// Check file history
-await getFileHistory({
-  repository: "my-repo",
-  path: "src/auth.js",
-  limit: 10
+// Configure build status reporting
+await setBuildStatus({
+  repository: "enterprise-project",
+  commitId: "abc123def",
+  state: "SUCCESSFUL",
+  key: "jenkins-build",
+  name: "Jenkins CI/CD",
+  url: "https://jenkins.company.com/build/123"
 });
 ```
 
 ## 🔒 **Security Best Practices**
 
-1. **Use Personal Access Tokens**: Preferred over username/password
+### **For All Platforms:**
+1. **Use Access Tokens**: Personal Access Tokens preferred over username/password
 2. **Minimal Permissions**: Grant only required permissions to tokens
-3. **Environment Variables**: Never hardcode credentials
+3. **Environment Variables**: Never hardcode credentials in code
 4. **Token Rotation**: Regularly rotate access tokens
 5. **Audit Access**: Regularly review deploy keys and webhooks
+
+### **Data Center Specific:**
+1. **HTTP Access Tokens**: Use for service-to-service authentication
+2. **Network Security**: Configure VPN and firewall rules appropriately
+3. **Instance Access**: Ensure Data Center instance is properly secured
+4. **Monitoring**: Monitor API usage and access patterns
+5. **Compliance**: Follow enterprise security and compliance requirements
 
 ## 🐛 **Troubleshooting**
 
 ### **Common Issues**
 
 #### **Authentication Errors (401)**
-- Verify your token/credentials are correct
-- Check token permissions include required scopes
-- For Cloud: ensure App Password has correct permissions
-- For Server: verify Personal Access Token is valid
+
+**Bitbucket Cloud:**
+- Verify App Password is correct and has required scopes
+- Ensure username matches the App Password owner
+- Check if 2FA is properly configured
+
+**Bitbucket Data Center:**
+- Verify Personal Access Token or HTTP Access Token is valid
+- Check token hasn't expired
+- Ensure token has sufficient permissions (Repository admin, Pull request admin)
+- Verify you're connecting to the correct Data Center instance
+
+**Bitbucket Server:**
+- Verify Personal Access Token is valid and hasn't expired
+- Check token permissions include required repository access
+- Ensure Server instance is accessible
+
+#### **Network/Connection Errors**
+
+**Data Center/Server Specific:**
+- **VPN Required**: Check if you need VPN access to reach the instance
+- **Firewall Rules**: Verify firewall allows HTTP/HTTPS access
+- **DNS Resolution**: Ensure the hostname resolves correctly
+- **SSL Certificates**: Check if SSL certificates are valid and trusted
+- **Proxy Configuration**: Configure proxy settings if required
+
+**Test Connectivity:**
+```bash
+# Test basic connectivity
+curl -I https://your-datacenter.company.com
+
+# Test API endpoint
+curl -H "Authorization: Bearer YOUR_TOKEN" \
+     https://your-datacenter.company.com/rest/api/1.0/projects
+```
 
 #### **Permission Errors (403)**  
-- Check you have access to the repository/project
-- Verify your role has sufficient permissions
-- For organization repos, ensure you're a member
+- **Repository Access**: Check you have access to the repository/project
+- **Role Permissions**: Verify your role has sufficient permissions
+- **Organization Membership**: For organization repos, ensure you're a member
+- **Data Center Groups**: Check group memberships and permissions
 
 #### **Not Found Errors (404)**
-- Verify repository/project names are correct
-- Check if repository exists and is accessible
-- Ensure workspace/project key is spelled correctly
+- **URL Correctness**: Verify the base URL is correct for your instance
+- **Project/Repository Names**: Check if names are spelled correctly
+- **Instance Accessibility**: Ensure the instance is running and accessible
+
+#### **Data Center Specific Issues**
+
+**Clustering Problems:**
+- **Load Balancer**: Check if load balancer is properly configured
+- **Node Health**: Verify all Data Center nodes are healthy
+- **Session Affinity**: Ensure proper session handling across nodes
+
+**Performance Issues:**
+- **API Rate Limits**: Check if you're hitting API rate limits
+- **Instance Resources**: Verify Data Center has sufficient resources
+- **Network Latency**: Check network latency between client and instance
 
 ### **Debug Mode**
-Enable debug logging:
+Enable detailed logging for troubleshooting:
+
 ```bash
+# Enable debug logging
 DEBUG=1 node build/index.js
+
+# Enable verbose API logging  
+DEBUG=verbose node build/index.js
 ```
+
+### **Platform Detection**
+The server automatically detects your platform, but you can override:
+
+```bash
+# Force Data Center detection
+BITBUCKET_PLATFORM_TYPE=datacenter
+
+# Specify version for better feature detection
+BITBUCKET_VERSION=8.5.0
+```
+
+## 🌟 **Feature Comparison**
+
+| Feature | Cloud | Data Center | Server |
+|---------|--------|-------------|---------|
+| Repository Management | ✅ | ✅ | ✅ |
+| Pull Requests | ✅ | ✅ | ✅ |
+| Branch Management | ✅ | ✅ | ✅ |
+| Webhooks | ✅ | ✅ | ✅ |
+| Pipelines | ✅ | ❌ | ❌ |
+| Snippets | ✅ | ❌ | ❌ |
+| Build Status API | ❌ | ✅ | ✅ |
+| HTTP Access Tokens | ❌ | ✅ | ❌ |
+| Enterprise Features | Basic | Advanced | Standard |
 
 ## 🤝 **Contributing**
 
 1. Fork the repository
-2. Create a feature branch
+2. Create a feature branch  
 3. Make your changes
-4. Add tests if applicable  
+4. Add tests if applicable
 5. Submit a pull request
 
 ## 📄 **License**
@@ -676,9 +726,10 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## 🙏 **Acknowledgments**
 
 - Bitbucket API documentation and team
-- Model Context Protocol (MCP) framework
+- Model Context Protocol (MCP) framework  
 - The open source community
+- Enterprise users providing Data Center feedback
 
 ---
 
-**Made with ❤️ for developers who love automation and seamless integrations.**
+**Made with ❤️ for developers who love automation and seamless integrations across all Bitbucket platforms.**

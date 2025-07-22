@@ -132,14 +132,24 @@ export class BitbucketServer {
 
         this.setupHandlers();
 
-        logger.info(`🔧 Initialized for ${this.config.isCloud ? 'Bitbucket Cloud' : 'Bitbucket Server'}`, {
+        const platformName = this.config.platformType === 'datacenter' ? 'Bitbucket Data Center' : 
+                            this.config.platformType === 'server' ? 'Bitbucket Server' :
+                            'Bitbucket Cloud';
+
+        const authMethod = this.config.token 
+            ? (this.config.platformType === 'cloud' && this.config.username ? 'App Password' : 'Personal/HTTP Access Token')
+            : 'Basic Auth (Username/Password)';
+
+        logger.info(`🔧 Initialized for ${platformName}`, {
+            platform: platformName,
+            platformType: this.config.platformType,
             baseUrl: this.config.baseUrl,
-            authMethod: this.config.isCloud
-                ? (this.config.token ? 'Basic Auth (App Password)' : 'Basic Auth (Username/Password)')
-                : (this.config.token ? 'Bearer Token (Personal Access Token)' : 'Basic Auth (Username/Password)'),
+            authMethod,
             hasAuth: !!(this.config.token || (this.config.username && this.config.password)),
             username: this.config.username || 'not provided',
-            defaultProject: this.config.defaultProject || 'not set'
+            defaultProject: this.config.defaultProject || 'not set',
+            version: this.config.version || 'unknown',
+            features: this.config.features
         });
     }
 
